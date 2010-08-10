@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>gwt-user</name>
+	<name>Jribble</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -24,12 +24,7 @@
 		<link>
 			<name>core</name>
 			<type>2</type>
-			<locationURI>GWT_ROOT/user</locationURI>
-		</link>
-		<link>
-			<name>scalagwt-lib</name>
-			<type>2</type>
-			<locationURI>GWT_ROOT/scalagwt-lib</locationURI>
+			<locationURI>GWT_ROOT/samples/jribble</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>
