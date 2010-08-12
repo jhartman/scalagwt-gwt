@@ -16,6 +16,7 @@
 package com.google.gwt.dev.javac.jribble;
 
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
+import com.google.jribble.ast.DeclaredType;
 
 /**
  * A compiled unit of Jribble code. It corresponds to one Java class.
@@ -23,10 +24,13 @@ import com.google.gwt.dev.jjs.ast.JDeclaredType;
 public class JribbleUnit {
   private final String name;
   private final JDeclaredType syntaxTree;
+  private final DeclaredType jribbleSyntaxTree;
 
-  public JribbleUnit(String name, JDeclaredType syntaxTree) {
+  public JribbleUnit(String name, DeclaredType jribbleSyntaxTree,
+      JDeclaredType syntaxTree) {
     this.name = name;
     this.syntaxTree = syntaxTree;
+    this.jribbleSyntaxTree = jribbleSyntaxTree;
   }
 
   public String getName() {
@@ -41,6 +45,10 @@ public class JribbleUnit {
    */
   public JDeclaredType getSyntaxTree() {
     return syntaxTree;
+  }
+
+  public DeclaredType getJribbleSyntaxTree() {
+    return jribbleSyntaxTree;
   }
 
   @Override

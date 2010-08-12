@@ -26,7 +26,9 @@ import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.gwt.dev.resource.Resource;
+import com.google.gwt.dev.util.Pair;
 import com.google.gwt.dev.util.Util;
+import com.google.jribble.ast.DeclaredType;
 
 import org.apache.commons.collections.map.AbstractReferenceMap;
 import org.apache.commons.collections.map.ReferenceIdentityMap;
@@ -44,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+
 
 /**
  * Manages a centralized cache for compiled units.
@@ -307,15 +310,18 @@ public class CompilationStateBuilder {
       if (!isJribbleFile(source)) {
         continue;
       }
-      JDeclaredType ast;
+      Pair<JDeclaredType, DeclaredType> pair;
       try {
-        ast = JribbleParser.parse(program, Util.createReader(logger,
+        pair = JribbleParser.parse(program, Util.createReader(logger, 
             source.openContents()));
-      } catch (UnableToCompleteException e) {
-        // bad unit; skip it
-        continue;
+      } catch (Exception e) {
+        if (e instanceof UnableToCompleteException)
+          // bad unit; skip it
+          continue;
+        //TODO (grek): is this a right thing to do?
+        else throw new RuntimeException(e);
       }
-      units.add(new JribbleUnit(ast.getName(), ast));
+      units.add(new JribbleUnit(pair.left.getName(), pair.right, pair.left));
     }
     return units;
   }

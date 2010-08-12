@@ -17,14 +17,13 @@ package com.google.gwt.dev.javac.jribble;
 
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JProgram;
-
+import com.google.gwt.dev.util.Pair;
 import com.google.jribble.DefParser;
 import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.DeclaredType;
 import com.google.jribble.ast.InterfaceDef;
 
 import java.io.Reader;
-
-import scala.Either;
 
 /**
  * Parses Loose Java into a syntax tree.
@@ -34,16 +33,19 @@ public class JribbleParser {
 
   private static final DefParser parser = new DefParser();
 
-  public static JDeclaredType parse(JProgram program, Reader source) {
-
-    Either<ClassDef, InterfaceDef> def = parser.parse(source);
-
-    if (def.isLeft()) {
-      ClassDef classDef = def.left().get();
-      return (new JribbleTransformer(program)).classDef(classDef);
+  public static Pair<JDeclaredType, DeclaredType> parse(JProgram program, 
+      Reader source) {
+    
+    DeclaredType def = parser.parse(source);
+    
+    JDeclaredType declaredType;
+    if (def instanceof ClassDef) {
+      ClassDef classDef = (ClassDef) def;
+      declaredType = (new JribbleTransformer(program)).classDef(classDef);
     } else {
-      InterfaceDef interfaceDef = def.right().get();
-      return (new JribbleTransformer(program)).interfaceDef(interfaceDef);
+      InterfaceDef interfaceDef = (InterfaceDef) def;
+      declaredType = (new JribbleTransformer(program)).interfaceDef(interfaceDef);
     }
+    return Pair.create(declaredType, def);
   }
 }
