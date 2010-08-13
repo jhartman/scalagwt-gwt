@@ -58,6 +58,7 @@ import com.google.gwt.dev.jjs.ast.JInterfaceType;
 import com.google.gwt.dev.util.Name;
 import com.google.gwt.dev.util.PerfLogger;
 import com.google.gwt.dev.util.Name.InternalName;
+import com.google.jribble.ast.InterfaceDef;
 
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
@@ -327,7 +328,7 @@ public class TypeOracleMediator {
 
       JRealClassType type = new JRealClassType(typeOracle,
           typeOracle.getOrCreatePackage(packageName), null, false, shortName,
-          unit.getSyntaxTree() instanceof JInterfaceType);
+          unit.getJribbleSyntaxTree() instanceof InterfaceDef);
 
       binaryMapper.put(unit.getName(), type);
       /*
