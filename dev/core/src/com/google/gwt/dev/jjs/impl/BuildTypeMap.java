@@ -185,6 +185,14 @@ public class BuildTypeMap {
       } else {
         throw new InternalCompilerException("Unknown subtype of JDeclaredType");
       }
+
+      if (type.getSuperClass() != null) {
+        newType.setSuperClass((JClassType) typeMap.get(type.getSuperClass()));
+      }
+      for (JInterfaceType i : type.getImplements()) {
+        newType.addImplements((JInterfaceType) typeMap.get(i));
+      }
+
       info.addCorrelation(program.getCorrelator().by(newType));
 
       addInitializers(info, program, newType);

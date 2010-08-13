@@ -15,7 +15,6 @@
  */
 package com.google.gwt.dev.javac.jribble;
 
-import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 
 /**
@@ -23,9 +22,9 @@ import com.google.gwt.dev.jjs.ast.JDeclaredType;
  */
 public class JribbleUnit {
   private final String name;
-  private final JClassType syntaxTree;
+  private final JDeclaredType syntaxTree;
 
-  public JribbleUnit(String name, JClassType syntaxTree) {
+  public JribbleUnit(String name, JDeclaredType syntaxTree) {
     this.name = name;
     this.syntaxTree = syntaxTree;
   }

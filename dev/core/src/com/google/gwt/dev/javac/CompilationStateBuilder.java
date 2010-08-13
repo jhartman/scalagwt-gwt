@@ -22,10 +22,10 @@ import com.google.gwt.dev.javac.CompilationUnitBuilder.ResourceCompilationUnitBu
 import com.google.gwt.dev.javac.JdtCompiler.UnitProcessor;
 import com.google.gwt.dev.javac.jribble.JribbleParser;
 import com.google.gwt.dev.javac.jribble.JribbleUnit;
-import com.google.gwt.dev.jjs.ast.JClassType;
+import com.google.gwt.dev.jjs.ast.JDeclaredType;
+import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.gwt.dev.resource.Resource;
-import com.google.gwt.dev.resource.ResourceOracle;
 import com.google.gwt.dev.util.Util;
 
 import org.apache.commons.collections.map.AbstractReferenceMap;
@@ -302,13 +302,14 @@ public class CompilationStateBuilder {
   private Iterable<JribbleUnit> parseAllLooseJava(TreeLogger logger,
       Iterable<Resource> sources) {
     List<JribbleUnit> units = new ArrayList<JribbleUnit>();
+    JProgram program = new JProgram();
     for (Resource source : sources) {
       if (!isJribbleFile(source)) {
         continue;
       }
-      JClassType ast;
+      JDeclaredType ast;
       try {
-        ast = JribbleParser.parse(Util.createReader(logger,
+        ast = JribbleParser.parse(program, Util.createReader(logger,
             source.openContents()));
       } catch (UnableToCompleteException e) {
         // bad unit; skip it

@@ -53,6 +53,7 @@ import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JExpression;
 import com.google.gwt.dev.jjs.ast.JGwtCreate;
+import com.google.gwt.dev.jjs.ast.JInterfaceType;
 import com.google.gwt.dev.jjs.ast.JMethod;
 import com.google.gwt.dev.jjs.ast.JMethodBody;
 import com.google.gwt.dev.jjs.ast.JMethodCall;
@@ -907,7 +908,20 @@ public class JavaToJavaScriptCompiler {
         refs.add(x.getMethodRef().getTypeName());
       }
 
+      public void endVisit(JDeclaredType x, Context ctx) {
+        if (x.getSuperClass() != null) {
+          refs.add(x.getSuperClass().getName());
+        }
+        for (JInterfaceType i : x.getImplements()) {
+          refs.add(i.getName());
+        }
+      }
+      
       public boolean visit(JribMethodCall x, Context ctx) {
+        return true;
+      }
+
+      public boolean visit(JDeclaredType x, Context ctx) {
         return true;
       }
     }

@@ -14,5 +14,6 @@
 
 <module rename-to="jribble">
 	<inherits name="com.google.gwt.user.User"/>
+	<inherits name="ScalaLibrary"/>
 	<entry-point class="com.google.gwt.sample.jribble.client.Hello"/>
 </module>

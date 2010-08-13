@@ -1,12 +1,12 @@
 /*
  * Copyright 2009 Google Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -15,57 +15,35 @@
  */
 package com.google.gwt.dev.javac.jribble;
 
-import static com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
-
-import com.google.gwt.dev.javac.jribble.ast.JribMethodCall;
-import com.google.gwt.dev.javac.jribble.ast.JribMethodRef;
-import com.google.gwt.dev.jjs.ast.JBlock;
-import com.google.gwt.dev.jjs.ast.JClassType;
-import com.google.gwt.dev.jjs.ast.JExpression;
-import com.google.gwt.dev.jjs.ast.JMethod;
-import com.google.gwt.dev.jjs.ast.JMethodBody;
-import com.google.gwt.dev.jjs.ast.JPrimitiveType;
+import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JProgram;
 
+import com.google.jribble.DefParser;
+import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.InterfaceDef;
+
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.List;
+
+import scala.Either;
 
 /**
  * Parses Loose Java into a syntax tree.
- * 
- * TODO(grek) implement a real parser
+ *
  */
 public class JribbleParser {
 
-  public static JClassType parse(Reader source) {
-    // Create a throw-away program because some AST nodes need one
-    JProgram program = new JProgram();
+  private static final DefParser parser = new DefParser();
 
-    JClassType sillyClass = new JClassType(UNKNOWN,
-        "com.google.gwt.sample.jribble.client.Hello", false, false);
-    program.createConstructor(UNKNOWN, sillyClass);
+  public static JDeclaredType parse(JProgram program, Reader source) {
 
-    {
-      // onModuleLoad() method
-      JMethod onModuleLoad = new JMethod(UNKNOWN, "onModuleLoad", sillyClass,
-          JPrimitiveType.VOID, false, false, false, false);
-      JMethodBody methodBody = new JMethodBody(UNKNOWN);
-      onModuleLoad.setBody(methodBody);
+    Either<ClassDef, InterfaceDef> def = parser.parse(source);
 
-      JBlock block = methodBody.getBlock();
-
-      {
-        // Window.alert("Hello, world!")
-        List<JExpression> args = new ArrayList<JExpression>();
-        args.add(program.getLiteralString(UNKNOWN, "Hello, world!"));
-        block.addStmt(new JribMethodCall(UNKNOWN, new JribMethodRef(
-            "com.google.gwt.user.client.Window", "alert(Ljava/lang/String;)V"),
-            null, args, JPrimitiveType.VOID).makeStatement());
-      }
-
-      sillyClass.addMethod(onModuleLoad);
+    if (def.isLeft()) {
+      ClassDef classDef = def.left().get();
+      return (new JribbleTransformer(program)).classDef(classDef);
+    } else {
+      InterfaceDef interfaceDef = def.right().get();
+      return (new JribbleTransformer(program)).interfaceDef(interfaceDef);
     }
-    return sillyClass;
   }
 }

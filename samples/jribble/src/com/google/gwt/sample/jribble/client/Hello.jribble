@@ -1,8 +1,11 @@
-public class com.google.gwt.sample.jribble.client.Hello extends java.lang.Object {
-  public Hello() {
+public class Lcom/google/gwt/sample/jribble/client/Hello; extends Ljava/lang/Object; implements Lcom/google/gwt/core/client/EntryPoint;, Lscala/ScalaObject; {
+  
+  public V onModuleLoad() {
+    Lcom/google/gwt/user/client/ui/Button; b = new (Lcom/google/gwt/user/client/ui/Button;::Button(Ljava/lang/String;Lcom/google/gwt/event/dom/client/ClickHandler;)V)("Click me", new (Lcom/google/gwt/sample/jribble/client/Hello$$anon$1;::Hello$$anon$1(Lcom/google/gwt/sample/jribble/client/Hello;)V)(this));
+    Lcom/google/gwt/user/client/ui/RootPanel;.(Lcom/google/gwt/user/client/ui/RootPanel;::get()Lcom/google/gwt/user/client/ui/RootPanel;)().(Lcom/google/gwt/user/client/ui/AbsolutePanel;::add(Lcom/google/gwt/user/client/ui/Widget;)V)(b);
   }
-
-  public void onModuleLoad() {
-    (class com.google.gwt.user.client.Window).alert(Ljava/lang/String;)V("Hello, world!");
+  
+  public Hello() {
+    (Ljava/lang/Object;::super()V)();
   }
 }
