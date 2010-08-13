@@ -107,6 +107,9 @@ import com.google.gwt.dev.js.ast.JsNameRef;
 import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.gwt.dev.util.JsniRef;
 import com.google.gwt.dev.util.collect.Lists;
+import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.DeclaredType;
+import com.google.jribble.ast.InterfaceDef;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.AND_AND_Expression;
@@ -2958,16 +2961,22 @@ public class GenerateJavaAST {
       this.methodOverridesBuilder = new MethodOverridesBuilder();
     }
 
-    public void process(JDeclaredType type) {
-      JDeclaredType newType = typeMap.get(type);
+    public void process(JDeclaredType type, DeclaredType jribbleSyntaxTree) {
+      JDeclaredType newType;
+      //TODO (grek): might sense to introduce name property to DeclaredType
+      if (jribbleSyntaxTree instanceof ClassDef) {
+        ClassDef classDef = (ClassDef) jribbleSyntaxTree;
+        newType = typeMap.get(classDef.name());
+      } else {
+        InterfaceDef interfaceDef = (InterfaceDef) jribbleSyntaxTree;
+        newType = typeMap.get(interfaceDef.name());
+      }
 
       currentType = newType;
 
       for (JMethod method : type.getMethods()) {
         process(method);
       }
-
-      // TODO(spoon,grek) process supertype, interfaces
 
       currentType = null;
     }
@@ -3190,7 +3199,7 @@ public class GenerateJavaAST {
 
     JribbleConverter looseJavaProc = new JribbleConverter(jprogram, typeMap);
     for (JribbleUnit unit : looseJavaUnits) {
-      looseJavaProc.process(unit.getSyntaxTree());
+      looseJavaProc.process(unit.getSyntaxTree(), unit.getJribbleSyntaxTree());
     }
 
     Collections.sort(jprogram.getDeclaredTypes(), new HasNameSort());

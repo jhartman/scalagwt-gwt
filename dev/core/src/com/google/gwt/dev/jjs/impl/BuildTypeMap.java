@@ -20,12 +20,12 @@ import com.google.gwt.dev.javac.jribble.JribbleUnit;
 import com.google.gwt.dev.jjs.HasSourceInfo;
 import com.google.gwt.dev.jjs.InternalCompilerException;
 import com.google.gwt.dev.jjs.SourceInfo;
-import com.google.gwt.dev.jjs.ast.Context;
 import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JConstructor;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JEnumType;
 import com.google.gwt.dev.jjs.ast.JField;
+import com.google.gwt.dev.jjs.ast.JField.Disposition;
 import com.google.gwt.dev.jjs.ast.JInterfaceType;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JMethod;
@@ -38,14 +38,18 @@ import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.jjs.ast.JReferenceType;
 import com.google.gwt.dev.jjs.ast.JReturnStatement;
 import com.google.gwt.dev.jjs.ast.JType;
-import com.google.gwt.dev.jjs.ast.JVisitor;
-import com.google.gwt.dev.jjs.ast.JField.Disposition;
 import com.google.gwt.dev.jjs.ast.js.JsniMethodBody;
 import com.google.gwt.dev.js.JsAbstractSymbolResolver;
 import com.google.gwt.dev.js.ast.JsFunction;
 import com.google.gwt.dev.js.ast.JsName;
 import com.google.gwt.dev.js.ast.JsNameRef;
 import com.google.gwt.dev.js.ast.JsProgram;
+import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.Constructor;
+import com.google.jribble.ast.InterfaceDef;
+import com.google.jribble.ast.MethodDef;
+import com.google.jribble.ast.ParamDef;
+import com.google.jribble.ast.Ref;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -81,6 +85,7 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -94,110 +99,124 @@ import java.util.Set;
  */
 public class BuildTypeMap {
 
-  public static class BuildDeclMapForJribbleVisitor extends JVisitor {
+  public static class BuildDeclMapForJribble {
     private final JProgram program;
     private final TypeMap typeMap;
-    private JDeclaredType currentType;
-
-    public BuildDeclMapForJribbleVisitor(TypeMap typeMap) {
+    
+    public BuildDeclMapForJribble(TypeMap typeMap) {
       this.typeMap = typeMap;
       program = this.typeMap.getProgram();
     }
-
-    @Override
-    public boolean visit(JClassType type, Context ctx) {
-      currentType = typeMap.get(type);
-      return true;
-    }
-
-    @Override
-    public boolean visit(JInterfaceType type, Context ctx) {
-      currentType = typeMap.get(type);
-      return true;
-    }
-
-    @Override
-    public boolean visit(JField field, Context ctx) {
-      JField newField = program.createField(field.getSourceInfo(),
-          field.getName(), currentType, typeMap.get(field.getType()),
-          field.isStatic(), field.getDisposition());
-
-      typeMap.put(newField);
-
-      return false;
-    }
-
-    @Override
-    public boolean visit(JMethod method, Context ctx) {
-      JMethod newMethod;
-
-      if (method instanceof JConstructor) {
-        newMethod = program.createConstructor(method.getSourceInfo(),
-            (JClassType) currentType);
-      } else {
-        newMethod = program.createMethod(method.getSourceInfo(),
-            method.getName(), currentType, typeMap.get(method.getType()),
-            method.isAbstract(), method.isStatic(), method.isFinal(),
-            method.isPrivate(), method.isNative());
+    
+    public void classDef(ClassDef def) {
+      JClassType enclosingType = (JClassType) typeMap.get(def.name());
+      for (Constructor x : def.jconstructors()) {
+        constructor(x, enclosingType);
       }
-      for (JParameter param : method.getParams()) {
-        JProgram.createParameter(param.getSourceInfo(), param.getName(),
-            typeMap.get(param.getType()), param.isFinal(), false, newMethod);
+      for (MethodDef x : def.jmethodDefs()) {
+        methodDef(x, enclosingType);
       }
-      newMethod.freezeParamTypes();
-
-      typeMap.put(newMethod);
-
-      return false;
+    }
+    
+    public List<String> interfaceDef(InterfaceDef def) {
+      List<String> refs = new LinkedList<String>();
+      JDeclaredType enclosingType = typeMap.get(def.name());
+      for (MethodDef x : def.jbody()) {
+        methodDef(x, enclosingType);
+      }
+      return refs;
+    }
+    
+    private void methodDef(MethodDef def, JDeclaredType enclosingType) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      JMethod method = program.createMethod(info, def.name(), enclosingType,
+          //TODO (grek): hard-coded modifiers
+          typeMap.get(def.returnType()), false, false, false, false, false);
+      paramDefs(def.jparams(), method);
+      method.freezeParamTypes();
+      typeMap.put(method);
+    }
+    
+    private void constructor(Constructor c, JClassType enclosingType) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      JConstructor constructor = program.createConstructor(info, enclosingType);
+      paramDefs(c.jparams(), constructor);
+      constructor.freezeParamTypes();
+      typeMap.put(constructor);
+    }
+    
+    private void paramDefs(List<ParamDef> xs, JMethod method) {
+      for (ParamDef x : xs) {
+        SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+        JProgram.createParameter(info, x.name(), typeMap.get(x.typ()), false, false, method);
+      }
     }
   }
-
-  public static class BuildTypeMapForJribbleVisitor extends JVisitor {
+  
+  public static class BuildTypeMapForJribble {
 
     private final JProgram program;
     private final TypeMap typeMap;
 
-    public BuildTypeMapForJribbleVisitor(TypeMap typeMap) {
+    public BuildTypeMapForJribble(TypeMap typeMap) {
       this.typeMap = typeMap;
       program = this.typeMap.getProgram();
     }
-
-    @Override
-    public boolean visit(JClassType type, Context ctx) {
-      addToMap(type);
-      return false;
+    
+    public void classDef(ClassDef def) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      JClassType newType;
+      newType = program.createClass(info, refName(def.name()), def.modifs().contains("abstract"), 
+          def.modifs().contains("final"));
+      addToMap(newType);
     }
-
-    @Override
-    public boolean visit(JInterfaceType type, Context ctx) {
-      addToMap(type);
-      return false;
+    
+    public void interfaceDef(InterfaceDef def) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      JInterfaceType newType;
+      newType = program.createInterface(info, refName(def.name()));
+      addToMap(newType);
     }
 
     private void addToMap(JDeclaredType type) {
       SourceInfo info = type.getSourceInfo();
-      JDeclaredType newType;
-      if (type instanceof JClassType) {
-        newType = program.createClass(info, type.getName(), type.isAbstract(),
-            type.isFinal());
-      } else if (type instanceof JInterfaceType) {
-        newType = program.createInterface(info, type.getName());
-      } else {
-        throw new InternalCompilerException("Unknown subtype of JDeclaredType");
+      
+      info.addCorrelation(program.getCorrelator().by(type));
+
+      addInitializers(info, program, type);
+
+      typeMap.put(type);
+    }
+    
+    //TODO Ref should have a method for that
+    public String refName(Ref ref) {
+      return ref.pkg().name().replace('/', '.') + "." + ref.name();
+    }
+  }
+  
+  public static class FillInSuperTypesForJribble {
+    private final TypeMap typeMap;
+    
+    public FillInSuperTypesForJribble(TypeMap typeMap) {
+      this.typeMap = typeMap;
+    }
+    
+    public void classDef(ClassDef def) {
+      JDeclaredType type = typeMap.get(def.name());
+      if (def.ext().isDefined())
+        type.setSuperClass((JClassType) typeMap.get(def.ext().get()));
+      for (Ref ref : def.jimplements()) {
+        type.addImplements((JInterfaceType) typeMap.get(ref));
       }
-
-      if (type.getSuperClass() != null) {
-        newType.setSuperClass((JClassType) typeMap.get(type.getSuperClass()));
-      }
-      for (JInterfaceType i : type.getImplements()) {
-        newType.addImplements((JInterfaceType) typeMap.get(i));
-      }
-
-      info.addCorrelation(program.getCorrelator().by(newType));
-
-      addInitializers(info, program, newType);
-
-      typeMap.put(newType);
+    }
+    
+    public void interfaceDef(InterfaceDef def) {
+      JDeclaredType type = typeMap.get(def.name());
+      //TODO (grek): jribble should have ext: List[Ref] instead of Option[Ref]
+      //in InterfaceDef and we probably should be using addImplements instead 
+      //of setSuperClass
+      if (def.ext().isDefined())
+        type.setSuperClass((JClassType) typeMap.get(def.ext().get()));
     }
   }
 
@@ -1024,9 +1043,13 @@ public class BuildTypeMap {
       unitDecls[i].traverse(v2, unitDecls[i].scope);
     }
 
-    JVisitor v2b = new BuildDeclMapForJribbleVisitor(typeMap);
+    BuildDeclMapForJribble v2b = new BuildDeclMapForJribble(typeMap);
     for (JribbleUnit unit : looseJavaUnits) {
-      v2b.accept(unit.getSyntaxTree());
+      if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
+        v2b.classDef((ClassDef) unit.getJribbleSyntaxTree());
+      } else {
+        v2b.interfaceDef((InterfaceDef) unit.getJribbleSyntaxTree());
+      }
     }
 
     return v2.getTypeDeclarataions();
@@ -1041,9 +1064,22 @@ public class BuildTypeMap {
       unitDecls[i].traverse(v1, unitDecls[i].scope);
     }
 
-    JVisitor v1b = new BuildTypeMapForJribbleVisitor(typeMap);
+    BuildTypeMapForJribble v1b = new BuildTypeMapForJribble(typeMap);
     for (JribbleUnit unit : looseJavaUnits) {
-      v1b.accept(unit.getSyntaxTree());
+      if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
+        v1b.classDef((ClassDef) unit.getJribbleSyntaxTree());
+      } else {
+        v1b.interfaceDef((InterfaceDef) unit.getJribbleSyntaxTree());
+      }
+    }
+    
+    FillInSuperTypesForJribble v1c = new FillInSuperTypesForJribble(typeMap);
+    for (JribbleUnit unit : looseJavaUnits) {
+      if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
+        v1c.classDef((ClassDef) unit.getJribbleSyntaxTree());
+      } else {
+        v1c.interfaceDef((InterfaceDef) unit.getJribbleSyntaxTree());
+      }
     }
   }
 }

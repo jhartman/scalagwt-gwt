@@ -26,6 +26,9 @@ import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.jjs.ast.JReferenceType;
 import com.google.gwt.dev.jjs.ast.JType;
 import com.google.gwt.dev.util.collect.HashMap;
+import com.google.jribble.ast.Primitive;
+import com.google.jribble.ast.Ref;
+import com.google.jribble.ast.Type;
 
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
@@ -134,6 +137,26 @@ public class TypeMap {
       return get((JReferenceType) type);
     }
     throw new UnknownNodeSubtype(type);
+  }
+  
+  public JDeclaredType get(Ref ref) {
+    String refName = refName(ref);
+    assert declaredTypesByName.containsKey(refName);
+    return declaredTypesByName.get(refName);
+  }
+  
+  public JType get(Type type) {
+    if (type instanceof Primitive) {
+      throw new InternalCompilerException("Handling of primitive types is to be implemented");
+    } else if (type instanceof Ref) {
+      return get((Ref) type);
+    } else if (type instanceof com.google.jribble.ast.Void$) {
+      return JPrimitiveType.VOID;
+    } else throw new InternalCompilerException("Unknown type " + type);
+  }
+  
+  private String refName(Ref ref) {
+    return ref.pkg().name().replace('/', '.') + "." + ref.name();
   }
 
   public JMethod getMethod(String typeName, String methodJsniSignature) {
