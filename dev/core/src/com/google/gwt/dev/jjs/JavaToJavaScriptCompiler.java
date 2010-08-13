@@ -37,15 +37,12 @@ import com.google.gwt.dev.Permutation;
 import com.google.gwt.dev.cfg.ModuleDef;
 import com.google.gwt.dev.javac.CompilationState;
 import com.google.gwt.dev.javac.jribble.JribbleUnit;
-import com.google.gwt.dev.javac.jribble.ast.JribMethodCall;
-import com.google.gwt.dev.javac.jribble.ast.JribVisitor;
 import com.google.gwt.dev.jdt.RebindPermutationOracle;
 import com.google.gwt.dev.jdt.WebModeCompilerFrontEnd;
 import com.google.gwt.dev.jjs.CorrelationFactory.DummyCorrelationFactory;
 import com.google.gwt.dev.jjs.CorrelationFactory.RealCorrelationFactory;
 import com.google.gwt.dev.jjs.InternalCompilerException.NodeInfo;
 import com.google.gwt.dev.jjs.UnifiedAst.AST;
-import com.google.gwt.dev.jjs.ast.Context;
 import com.google.gwt.dev.jjs.ast.JBinaryOperation;
 import com.google.gwt.dev.jjs.ast.JBinaryOperator;
 import com.google.gwt.dev.jjs.ast.JBlock;
@@ -53,14 +50,12 @@ import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JExpression;
 import com.google.gwt.dev.jjs.ast.JGwtCreate;
-import com.google.gwt.dev.jjs.ast.JInterfaceType;
 import com.google.gwt.dev.jjs.ast.JMethod;
 import com.google.gwt.dev.jjs.ast.JMethodBody;
 import com.google.gwt.dev.jjs.ast.JMethodCall;
 import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.jjs.ast.JReboundEntryPoint;
 import com.google.gwt.dev.jjs.ast.JStatement;
-import com.google.gwt.dev.jjs.ast.JVisitor;
 import com.google.gwt.dev.jjs.impl.ArrayNormalizer;
 import com.google.gwt.dev.jjs.impl.AssertionNormalizer;
 import com.google.gwt.dev.jjs.impl.AssertionRemover;
@@ -68,6 +63,7 @@ import com.google.gwt.dev.jjs.impl.BuildTypeMap;
 import com.google.gwt.dev.jjs.impl.CastNormalizer;
 import com.google.gwt.dev.jjs.impl.CatchBlockNormalizer;
 import com.google.gwt.dev.jjs.impl.CodeSplitter;
+import com.google.gwt.dev.jjs.impl.CodeSplitter.MultipleDependencyGraphRecorder;
 import com.google.gwt.dev.jjs.impl.ControlFlowAnalyzer;
 import com.google.gwt.dev.jjs.impl.DeadCodeElimination;
 import com.google.gwt.dev.jjs.impl.EqualityNormalizer;
@@ -98,7 +94,6 @@ import com.google.gwt.dev.jjs.impl.SameParameterValueOptimizer;
 import com.google.gwt.dev.jjs.impl.SourceGenerationVisitor;
 import com.google.gwt.dev.jjs.impl.TypeMap;
 import com.google.gwt.dev.jjs.impl.TypeTightener;
-import com.google.gwt.dev.jjs.impl.CodeSplitter.MultipleDependencyGraphRecorder;
 import com.google.gwt.dev.jjs.impl.gflow.DataflowOptimizer;
 import com.google.gwt.dev.js.EvalFunctionsAtTopScope;
 import com.google.gwt.dev.js.JsBreakUpLargeVarStatements;
@@ -131,6 +126,28 @@ import com.google.gwt.dev.util.Util;
 import com.google.gwt.dev.util.collect.Maps;
 import com.google.gwt.soyc.SoycDashboard;
 import com.google.gwt.soyc.io.ArtifactsOutputDirectory;
+import com.google.jribble.ast.Array;
+import com.google.jribble.ast.Assignment;
+import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.Constructor;
+import com.google.jribble.ast.ConstructorStatement;
+import com.google.jribble.ast.DeclaredType;
+import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.InterfaceDef;
+import com.google.jribble.ast.Literal;
+import com.google.jribble.ast.MethodCall;
+import com.google.jribble.ast.MethodDef;
+import com.google.jribble.ast.MethodStatement;
+import com.google.jribble.ast.NewCall;
+import com.google.jribble.ast.ParamDef;
+import com.google.jribble.ast.Ref;
+import com.google.jribble.ast.Signature;
+import com.google.jribble.ast.StaticMethodCall;
+import com.google.jribble.ast.SuperConstructorCall;
+import com.google.jribble.ast.ThisRef$;
+import com.google.jribble.ast.Type;
+import com.google.jribble.ast.VarDef;
+import com.google.jribble.ast.VarRef;
 
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -147,6 +164,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -901,36 +919,147 @@ public class JavaToJavaScriptCompiler {
 
   private static Collection<String> findRefsFromLooseJava(
       CompilationState compilationState) {
-    class FindRefs extends JVisitor implements JribVisitor {
-      List<String> refs = new ArrayList<String>();
-
-      public void endVisit(JribMethodCall x, Context ctx) {
-        refs.add(x.getMethodRef().getTypeName());
-      }
-
-      public void endVisit(JDeclaredType x, Context ctx) {
-        if (x.getSuperClass() != null) {
-          refs.add(x.getSuperClass().getName());
-        }
-        for (JInterfaceType i : x.getImplements()) {
-          refs.add(i.getName());
+    final List<String> refs = new LinkedList<String>();
+    
+    /**
+     * Traverses Jribble AST and extracts all references to classes/interfaces.
+     */
+    class FindRefs {
+      
+      public void declaredType(DeclaredType type) {
+        if (type instanceof ClassDef) {
+          classDef((ClassDef) type);
+        } else {
+          interfaceDef((InterfaceDef) type);
         }
       }
       
-      public boolean visit(JribMethodCall x, Context ctx) {
-        return true;
+      public String refName(Ref ref) {
+        return ref.pkg().name().replace('/', '.') + "." + ref.name();
+      }
+      
+      private void call(Signature signature, List<Expression> params) {
+        signature(signature);
+        params(params);
+      }
+      
+      private void classDef(ClassDef classDef) {
+        if (classDef.ext().isDefined()) {
+          refs.add(refName(classDef.ext().get()));
+        }
+        for (Ref i : classDef.jimplements()) {
+          refs.add(refName(i));
+        }
+        for (Constructor x : classDef.jconstructors()) {
+          constructor(x);
+        }
+        for (MethodDef x : classDef.jmethodDefs()) {
+          methodDef(x);
+        }
+      }
+      
+      private void constructor(Constructor c) {
+        paramDefs(c.jparams());
+        for (ConstructorStatement x : c.jbody()) {
+          constructorStatement(x);
+        }
+      }
+      
+      private void constructorStatement(ConstructorStatement x) {
+        if (x instanceof SuperConstructorCall) {
+          SuperConstructorCall call = (SuperConstructorCall) x;
+          call(call.signature(), call.jparams());
+        } else if (x instanceof MethodStatement) {
+          methodStatement((MethodStatement) x);
+        } else {
+          throw new RuntimeException("Unsupported node " + x);
+        }
+      }
+      
+      private void expression(Expression x) {
+        if (x instanceof NewCall) {
+          NewCall call = (NewCall) x;
+          call(call.signature(), call.jparams());
+        } else if (x instanceof MethodCall) {
+          MethodCall call = (MethodCall) x;
+          expression(call.on());
+          call(call.signature(), call.jparams());
+        } else if (x instanceof StaticMethodCall) {
+          StaticMethodCall call = (StaticMethodCall) x;
+          refs.add(refName(call.classRef()));
+          call(call.signature(), call.jparams());
+        } else if ((x instanceof VarRef) || (x instanceof ThisRef$) || (x instanceof Literal)) {
+          // do nothing as these expression cannot introduce new refs
+        } else {
+          throw new RuntimeException("Unsupported node " + x);
+        }
+      }
+      
+      private void interfaceDef(InterfaceDef def) {
+        if (def.ext().isDefined()) {
+          refs.add(refName(def.ext().get()));
+        }
+        for (MethodDef x : def.jbody()) {
+          methodDef(x);
+        }
+      }
+      
+      private void methodDef(MethodDef def) {
+        paramDefs(def.jparams());
+        for (MethodStatement x : def.jbody()) {
+          methodStatement(x);
+        }
+      }
+      
+      private void methodStatement(MethodStatement x) {
+        if (x instanceof VarDef) {
+          VarDef def = (VarDef) x;
+          type(def.typ());
+          expression(def.value());
+        } else if (x instanceof Assignment) {
+          Assignment assignement = (Assignment) x;
+          expression(assignement.value());
+        } else if (x instanceof Expression) {
+          expression((Expression) x);
+        } else {
+          throw new RuntimeException("Unsupported node " + x);
+        }
+      }
+      
+      private void paramDefs(List<ParamDef> xs) {
+        for (ParamDef x : xs) {
+          type(x.typ());
+        }
+      }
+      
+      private void params(List<Expression> xs) {
+        for (Expression x : xs) {
+          expression(x);
+        }
+      }
+      
+      private void signature(Signature x) {
+        refs.add(refName(x.on()));
+        for (Type t : x.jparamTypes()) {
+          type(t);
+        }
+        type(x.returnType());
       }
 
-      public boolean visit(JDeclaredType x, Context ctx) {
-        return true;
+      private void type(Type x) {
+        if (x instanceof Ref) {
+          refs.add(refName((Ref) x));
+        } else if (x instanceof Array) {
+          type(((Array) x).typ());
+        }
       }
     }
     FindRefs findRefs = new FindRefs();
 
     for (JribbleUnit unit : compilationState.getLooseJavaUnits()) {
-      findRefs.accept(unit.getSyntaxTree());
+      findRefs.declaredType(unit.getJribbleSyntaxTree());
     }
-    return findRefs.refs;
+    return refs;
   }
 
   /**
