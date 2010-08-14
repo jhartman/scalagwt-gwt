@@ -2754,6 +2754,194 @@ public class GenerateJavaAST {
   }
 
   /**
+   * Converts Loose Java nodes into Java nodes and installs them in a supplied
+   * JProgram.
+   */
+  private static class JribbleConverter {
+    private JMethod currentMethod;
+    private JDeclaredType currentType;
+    private final JProgram program;
+    private final TypeMap typeMap;
+    private final MethodOverridesBuilder methodOverridesBuilder;
+
+    public JribbleConverter(JProgram program, TypeMap typeMap) {
+      this.program = program;
+      this.typeMap = typeMap;
+      this.methodOverridesBuilder = new MethodOverridesBuilder();
+    }
+
+    public void process(JDeclaredType type, DeclaredType jribbleSyntaxTree) {
+      JDeclaredType newType;
+      // TODO(grek): might sense to introduce name property to DeclaredType
+      if (jribbleSyntaxTree instanceof ClassDef) {
+        ClassDef classDef = (ClassDef) jribbleSyntaxTree;
+        newType = typeMap.get(classDef.name());
+      } else {
+        InterfaceDef interfaceDef = (InterfaceDef) jribbleSyntaxTree;
+        newType = typeMap.get(interfaceDef.name());
+      }
+
+      currentType = newType;
+
+      for (JMethod method : type.getMethods()) {
+        process(method);
+      }
+
+      currentType = null;
+    }
+
+    private JCastOperation convert(JCastOperation cast) {
+      return new JCastOperation(cast.getSourceInfo(), convert(cast.getCastType()), convert(cast.getExpr()));
+    }
+
+    private JExpression convert(JExpression expr) {
+      if (expr == null) {
+        return null;
+      }
+
+      if (expr instanceof JStringLiteral) {
+        return program.getLiteralString(expr.getSourceInfo(),
+            ((JStringLiteral) expr).getValue());
+      }
+      
+      if (expr instanceof JribNewInstance) {
+        JribNewInstance newInstance = (JribNewInstance) expr;
+        JConstructor constructor = (JConstructor) typeMap.getMethod(
+            newInstance.getMethodRef().getTypeName(),
+            newInstance.getMethodRef().getMethodJsniSignature());
+        JNewInstance newInstanceCall = 
+          new JNewInstance(newInstance.getSourceInfo(), constructor, 
+              constructor.getEnclosingType());
+
+        for (JExpression arg : newInstance.getArguments()) {
+          newInstanceCall.addArg(convert(arg));
+        }
+
+        return newInstanceCall;
+      }
+
+      if (expr instanceof JribMethodCall) {
+        JribMethodCall methodCall = (JribMethodCall) expr;
+        JExpression newInstance = convert(methodCall.getInstance());
+        JMethod newTarget = typeMap.getMethod(
+            methodCall.getMethodRef().getTypeName(),
+            methodCall.getMethodRef().getMethodJsniSignature());
+        JMethodCall newMethodCall = new JMethodCall(methodCall.getSourceInfo(),
+            newInstance, newTarget);
+        
+        // TODO(grek): inspired by JavaASTGenerationVisitor.processConstructor
+        // seems to be be an odd special case
+        if (newTarget instanceof JConstructor) {
+          newMethodCall.setStaticDispatchOnly();
+        }
+
+        for (JExpression arg : methodCall.getArguments()) {
+          newMethodCall.addArg(convert(arg));
+        }
+
+        return newMethodCall;
+      }
+      
+      if (expr instanceof JThisRef) {
+        // TODO(grek) this is ugly as hell and probably incorrect
+        return program.getExprThisRef(expr.getSourceInfo(), 
+            (JClassType) convert(((JThisRef) expr).getClassType()));
+      }
+      
+      if (expr instanceof JVariableRef) {
+        return convert((JVariableRef) expr);
+      }
+      
+      if (expr instanceof JCastOperation) {
+        return convert((JCastOperation) expr);
+      }
+
+      throw new UnknownNodeSubtype(expr);
+
+      // TODO(spoon,grek) handle other expression types
+    }
+
+    @SuppressWarnings("static-access")
+    private JLocal convert(JLocal local) {
+      JMethodBody body = (JMethodBody) currentMethod.getBody();
+      JLocal newLocal = findLocal(body.getLocals(), local.getName());
+      if (newLocal != null) {
+        return newLocal;
+      }
+      return program.createLocal(local.getSourceInfo(), local.getName(), 
+          convert(local.getType()), local.isFinal(), body);
+    }
+    
+    private JStatement convert(JStatement stat) {
+      if (stat instanceof JExpressionStatement) {
+        JExpressionStatement statExpr = (JExpressionStatement) stat;
+        JExpression newExpr = convert(statExpr.getExpr());
+        return newExpr.makeStatement();
+      }
+      
+      if (stat instanceof JDeclarationStatement) {
+        JDeclarationStatement decl = (JDeclarationStatement) stat;
+        return new JDeclarationStatement(decl.getSourceInfo(),
+            convert(decl.getVariableRef()), convert(decl.getInitializer()));
+      }
+
+      throw new UnknownNodeSubtype(stat);
+      // TODO(spoon,grek) handle other statement types
+    }
+    
+    private JType convert(JType type) {
+      return typeMap.get(type);
+    }
+    
+    private JVariableRef convert(JVariableRef ref) {
+      if (ref instanceof JLocalRef) {
+        JLocalRef localRef = (JLocalRef) ref;
+        return new JLocalRef(localRef.getSourceInfo(), convert(localRef.getLocal()));
+      }
+      throw new UnknownNodeSubtype(ref);
+    }
+    
+    private JLocal findLocal(List<JLocal> locals, String name) {
+      JLocal result = null;
+      for (JLocal l : locals) {
+        if (l.getName().equals(name)) {
+          result = l;
+          break;
+        }
+      }     
+      return result;
+    }
+    
+    private void process(JMethod method) {
+      JMethod newMethod = typeMap.get(method);
+
+      // TODO(spoon,grek) handle native methods
+      JMethodBody methodBody = (JMethodBody) method.getBody();
+      JMethodBody newBody = new JMethodBody(methodBody.getSourceInfo());
+      newMethod.setBody(newBody);
+
+      for (JLocal local : methodBody.getLocals()) {
+        JProgram.createLocal(local.getSourceInfo(),
+            local.getName(), typeMap.get(local.getType()),
+            local.isFinal(), newBody);
+      }
+
+      currentMethod = newMethod;
+
+      for (JStatement stat : methodBody.getStatements()) {
+        newBody.getBlock().addStmt(convert(stat));
+      }
+      
+      // TODO(grek): what about abstract methods?
+      if (newMethod.canBePolymorphic()) {
+        this.methodOverridesBuilder.tryFindUpRefs(newMethod);
+      }
+
+      currentMethod = null;
+    }
+  }
+
+  /**
    * Resolve JSNI refs; replace with compile-time constants where appropriate.
    */
   private static class JsniRefGenerationVisitor extends JModVisitor {
@@ -2941,194 +3129,6 @@ public class GenerateJavaAST {
     @Override
     public boolean visit(JMethodBody x, Context ctx) {
       return false;
-    }
-  }
-
-  /**
-   * Converts Loose Java nodes into Java nodes and installs them in a supplied
-   * JProgram.
-   */
-  private static class JribbleConverter {
-    private JMethod currentMethod;
-    private JDeclaredType currentType;
-    private final JProgram program;
-    private final TypeMap typeMap;
-    private final MethodOverridesBuilder methodOverridesBuilder;
-
-    public JribbleConverter(JProgram program, TypeMap typeMap) {
-      this.program = program;
-      this.typeMap = typeMap;
-      this.methodOverridesBuilder = new MethodOverridesBuilder();
-    }
-
-    public void process(JDeclaredType type, DeclaredType jribbleSyntaxTree) {
-      JDeclaredType newType;
-      //TODO (grek): might sense to introduce name property to DeclaredType
-      if (jribbleSyntaxTree instanceof ClassDef) {
-        ClassDef classDef = (ClassDef) jribbleSyntaxTree;
-        newType = typeMap.get(classDef.name());
-      } else {
-        InterfaceDef interfaceDef = (InterfaceDef) jribbleSyntaxTree;
-        newType = typeMap.get(interfaceDef.name());
-      }
-
-      currentType = newType;
-
-      for (JMethod method : type.getMethods()) {
-        process(method);
-      }
-
-      currentType = null;
-    }
-
-    private JExpression convert(JExpression expr) {
-      if (expr == null) {
-        return null;
-      }
-
-      if (expr instanceof JStringLiteral) {
-        return program.getLiteralString(expr.getSourceInfo(),
-            ((JStringLiteral) expr).getValue());
-      }
-      
-      if (expr instanceof JribNewInstance) {
-        JribNewInstance newInstance = (JribNewInstance) expr;
-        JConstructor constructor = (JConstructor) typeMap.getMethod(
-            newInstance.getMethodRef().getTypeName(),
-            newInstance.getMethodRef().getMethodJsniSignature());
-        JNewInstance newInstanceCall = 
-          new JNewInstance(newInstance.getSourceInfo(), constructor, 
-              constructor.getEnclosingType());
-
-        for (JExpression arg : newInstance.getArguments()) {
-          newInstanceCall.addArg(convert(arg));
-        }
-
-        return newInstanceCall;
-      }
-
-      if (expr instanceof JribMethodCall) {
-        JribMethodCall methodCall = (JribMethodCall) expr;
-        JExpression newInstance = convert(methodCall.getInstance());
-        JMethod newTarget = typeMap.getMethod(
-            methodCall.getMethodRef().getTypeName(),
-            methodCall.getMethodRef().getMethodJsniSignature());
-        JMethodCall newMethodCall = new JMethodCall(methodCall.getSourceInfo(),
-            newInstance, newTarget);
-        
-        // TODO(grek): inspired by JavaASTGenerationVisitor.processConstructor
-        // seems to be be an odd special case
-        if (newTarget instanceof JConstructor) {
-          newMethodCall.setStaticDispatchOnly();
-        }
-
-        for (JExpression arg : methodCall.getArguments()) {
-          newMethodCall.addArg(convert(arg));
-        }
-
-        return newMethodCall;
-      }
-      
-      if (expr instanceof JThisRef) {
-        // TODO(grek) this is ugly as hell and probably incorrect
-        return program.getExprThisRef(expr.getSourceInfo(), 
-            (JClassType) convert(((JThisRef)expr).getClassType()));
-      }
-      
-      if (expr instanceof JVariableRef) {
-        return convert((JVariableRef) expr);
-      }
-      
-      if (expr instanceof JCastOperation) {
-        return convert((JCastOperation) expr);
-      }
-
-      throw new UnknownNodeSubtype(expr);
-
-      // TODO(spoon,grek) handle other expression types
-    }
-
-    private JStatement convert(JStatement stat) {
-      if (stat instanceof JExpressionStatement) {
-        JExpressionStatement statExpr = (JExpressionStatement) stat;
-        JExpression newExpr = convert(statExpr.getExpr());
-        return newExpr.makeStatement();
-      }
-      
-      if (stat instanceof JDeclarationStatement) {
-        JDeclarationStatement decl = (JDeclarationStatement) stat;
-        return new JDeclarationStatement(decl.getSourceInfo(),
-            convert(decl.getVariableRef()), convert(decl.getInitializer()));
-      }
-
-      throw new UnknownNodeSubtype(stat);
-      // TODO(spoon,grek) handle other statement types
-    }
-
-    private void process(JMethod method) {
-      JMethod newMethod = typeMap.get(method);
-
-      // TODO(spoon,grek) handle native methods
-      JMethodBody methodBody = (JMethodBody) method.getBody();
-      JMethodBody newBody = new JMethodBody(methodBody.getSourceInfo());
-      newMethod.setBody(newBody);
-
-      for (JLocal local : methodBody.getLocals()) {
-        JProgram.createLocal(local.getSourceInfo(),
-            local.getName(), typeMap.get(local.getType()),
-            local.isFinal(), newBody);
-      }
-
-      currentMethod = newMethod;
-
-      for (JStatement stat : methodBody.getStatements()) {
-        newBody.getBlock().addStmt(convert(stat));
-      }
-      
-      // TODO(grek): what about abstract methods?
-      if (newMethod.canBePolymorphic()) {
-        this.methodOverridesBuilder.tryFindUpRefs(newMethod);
-      }
-
-      currentMethod = null;
-    }
-    
-    private JType convert(JType type) {
-      return typeMap.get(type);
-    }
-    
-    private JVariableRef convert(JVariableRef ref) {
-      if (ref instanceof JLocalRef) {
-        JLocalRef localRef = (JLocalRef) ref;
-        return new JLocalRef(localRef.getSourceInfo(), convert(localRef.getLocal()));
-      }
-      throw new UnknownNodeSubtype(ref);
-    }
-    
-    @SuppressWarnings("static-access")
-    private JLocal convert(JLocal local) {
-      JMethodBody body = (JMethodBody) currentMethod.getBody();
-      JLocal newLocal = findLocal(body.getLocals(), local.getName());
-      if (newLocal != null) {
-        return newLocal;
-      }
-      return program.createLocal(local.getSourceInfo(), local.getName(), 
-          convert(local.getType()), local.isFinal(), body);
-    }
-    
-    private JCastOperation convert(JCastOperation cast) {
-      return new JCastOperation(cast.getSourceInfo(), convert(cast.getCastType()), convert(cast.getExpr()));
-    }
-    
-    private JLocal findLocal(List<JLocal> locals, String name) {
-      JLocal result = null;
-      for (JLocal l : locals) {
-        if (l.getName().equals(name)) {
-          result = l;
-          break;
-        }
-      }     
-      return result;
     }
   }
 

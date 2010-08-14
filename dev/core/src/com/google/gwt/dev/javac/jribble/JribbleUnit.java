@@ -33,6 +33,10 @@ public class JribbleUnit {
     this.jribbleSyntaxTree = jribbleSyntaxTree;
   }
 
+  public DeclaredType getJribbleSyntaxTree() {
+    return jribbleSyntaxTree;
+  }
+
   public String getName() {
     return name;
   }
@@ -45,10 +49,6 @@ public class JribbleUnit {
    */
   public JDeclaredType getSyntaxTree() {
     return syntaxTree;
-  }
-
-  public DeclaredType getJribbleSyntaxTree() {
-    return jribbleSyntaxTree;
   }
 
   @Override

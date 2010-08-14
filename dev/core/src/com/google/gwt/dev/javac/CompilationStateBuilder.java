@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
-
 /**
  * Manages a centralized cache for compiled units.
  */
@@ -302,33 +301,6 @@ public class CompilationStateBuilder {
         resources),compileMoreLater);
   }
 
-  private Iterable<JribbleUnit> parseAllLooseJava(TreeLogger logger,
-      Iterable<Resource> sources) {
-    List<JribbleUnit> units = new ArrayList<JribbleUnit>();
-    JProgram program = new JProgram();
-    for (Resource source : sources) {
-      if (!isJribbleFile(source)) {
-        continue;
-      }
-      Pair<JDeclaredType, DeclaredType> pair;
-      try {
-        pair = JribbleParser.parse(program, Util.createReader(logger, 
-            source.openContents()));
-      } catch (Exception e) {
-        if (e instanceof UnableToCompleteException)
-          // bad unit; skip it
-          continue;
-        //TODO (grek): is this a right thing to do?
-        else throw new RuntimeException(e);
-      }
-      units.add(new JribbleUnit(pair.left.getName(), pair.right, pair.left));
-    }
-    return units;
-  }
-
-  private boolean isJribbleFile(Resource source) {
-    return source.getPath().endsWith(".jribble");
-  }
   /**
    * Compile new generated units into an existing state.
    * 
@@ -371,5 +343,35 @@ public class CompilationStateBuilder {
     invalidateUnitsWithInvalidRefs(logger, resultUnits,
         compileMoreLater.getValidDependencies());
     return resultUnits.values();
+  }
+
+  private boolean isJribbleFile(Resource source) {
+    return source.getPath().endsWith(".jribble");
+  }
+  
+  private Iterable<JribbleUnit> parseAllLooseJava(TreeLogger logger,
+      Iterable<Resource> sources) {
+    List<JribbleUnit> units = new ArrayList<JribbleUnit>();
+    JProgram program = new JProgram();
+    for (Resource source : sources) {
+      if (!isJribbleFile(source)) {
+        continue;
+      }
+      Pair<JDeclaredType, DeclaredType> pair;
+      try {
+        pair = JribbleParser.parse(program, Util.createReader(logger, 
+            source.openContents()));
+      } catch (Exception e) {
+        if (e instanceof UnableToCompleteException) {
+          // bad unit; skip it
+          continue;
+        // TODO(grek): is this a right thing to do?
+        } else {
+          throw new RuntimeException(e);
+        }
+      }
+      units.add(new JribbleUnit(pair.left.getName(), pair.right, pair.left));
+    }
+    return units;
   }
 }

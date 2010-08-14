@@ -99,6 +99,10 @@ import java.util.Set;
  */
 public class BuildTypeMap {
 
+  /**
+   * Adds method and constructor definitions with empty bodies to nodes 
+   * constructed in {@link BuildTypeMapForJribble} step.
+   */
   public static class BuildDeclMapForJribble {
     private final JProgram program;
     private final TypeMap typeMap;
@@ -127,22 +131,22 @@ public class BuildTypeMap {
       return refs;
     }
     
-    private void methodDef(MethodDef def, JDeclaredType enclosingType) {
-      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
-      JMethod method = program.createMethod(info, def.name(), enclosingType,
-          //TODO (grek): hard-coded modifiers
-          typeMap.get(def.returnType()), false, false, false, false, false);
-      paramDefs(def.jparams(), method);
-      method.freezeParamTypes();
-      typeMap.put(method);
-    }
-    
     private void constructor(Constructor c, JClassType enclosingType) {
       SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
       JConstructor constructor = program.createConstructor(info, enclosingType);
       paramDefs(c.jparams(), constructor);
       constructor.freezeParamTypes();
       typeMap.put(constructor);
+    }
+    
+    private void methodDef(MethodDef def, JDeclaredType enclosingType) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      JMethod method = program.createMethod(info, def.name(), enclosingType,
+          // TODO(grek): hard-coded modifiers
+          typeMap.get(def.returnType()), false, false, false, false, false);
+      paramDefs(def.jparams(), method);
+      method.freezeParamTypes();
+      typeMap.put(method);
     }
     
     private void paramDefs(List<ParamDef> xs, JMethod method) {
@@ -153,6 +157,11 @@ public class BuildTypeMap {
     }
   }
   
+  /**
+   * Builds incomplete GWT nodes for classes and interfaces defined in 
+   * Jribble AST. These nodes do not include information about super types 
+   * and their respective bodies.
+   */
   public static class BuildTypeMapForJribble {
 
     private final JProgram program;
@@ -178,6 +187,11 @@ public class BuildTypeMap {
       addToMap(newType);
     }
 
+    // TODO(grek) Ref should have a method for that
+    public String refName(Ref ref) {
+      return ref.pkg().name().replace('/', '.') + "." + ref.name();
+    }
+    
     private void addToMap(JDeclaredType type) {
       SourceInfo info = type.getSourceInfo();
       
@@ -187,13 +201,12 @@ public class BuildTypeMap {
 
       typeMap.put(type);
     }
-    
-    //TODO Ref should have a method for that
-    public String refName(Ref ref) {
-      return ref.pkg().name().replace('/', '.') + "." + ref.name();
-    }
   }
-  
+
+  /**
+   * Adds information about super types to nodes constructed in 
+   * {@link BuildTypeMapForJribble} step.
+   */
   public static class FillInSuperTypesForJribble {
     private final TypeMap typeMap;
     
@@ -203,8 +216,9 @@ public class BuildTypeMap {
     
     public void classDef(ClassDef def) {
       JDeclaredType type = typeMap.get(def.name());
-      if (def.ext().isDefined())
+      if (def.ext().isDefined()) {
         type.setSuperClass((JClassType) typeMap.get(def.ext().get()));
+      }
       for (Ref ref : def.jimplements()) {
         type.addImplements((JInterfaceType) typeMap.get(ref));
       }
@@ -212,11 +226,12 @@ public class BuildTypeMap {
     
     public void interfaceDef(InterfaceDef def) {
       JDeclaredType type = typeMap.get(def.name());
-      //TODO (grek): jribble should have ext: List[Ref] instead of Option[Ref]
-      //in InterfaceDef and we probably should be using addImplements instead 
-      //of setSuperClass
-      if (def.ext().isDefined())
+      // TODO(grek): jribble should have ext: List[Ref] instead of Option[Ref]
+      // in InterfaceDef and we probably should be using addImplements instead 
+      // of setSuperClass
+      if (def.ext().isDefined()) {
         type.setSuperClass((JClassType) typeMap.get(def.ext().get()));
+      }
     }
   }
 
@@ -997,6 +1012,18 @@ public class BuildTypeMap {
         jsProgram);
   }
 
+  static String dotify(char[][] name) {
+    StringBuffer result = new StringBuffer();
+    for (int i = 0; i < name.length; ++i) {
+      if (i > 0) {
+        result.append('.');
+      }
+
+      result.append(name[i]);
+    }
+    return result.toString();
+  }
+
   /**
    * We emulate static initializers and instance initializers as methods. As in
    * other cases, this gives us: simpler AST, easier to optimize, more like
@@ -1019,18 +1046,6 @@ public class BuildTypeMap {
       init.freezeParamTypes();
       init.setSynthetic();
     }
-  }
-
-  static String dotify(char[][] name) {
-    StringBuffer result = new StringBuffer();
-    for (int i = 0; i < name.length; ++i) {
-      if (i > 0) {
-        result.append('.');
-      }
-
-      result.append(name[i]);
-    }
-    return result.toString();
   }
 
   private static TypeDeclaration[] createPeersForNonTypeDecls(

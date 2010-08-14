@@ -124,6 +124,14 @@ public class CompilationState {
     return exposedUnits;
   }
 
+  public Iterable<JribbleUnit> getLooseJavaUnits() {
+    return looseJavaUnits;
+  }
+
+  public TypeOracle getTypeOracle() {
+    return mediator.getTypeOracle();
+  }
+
   public boolean isLooseJavaType(String seedTypeName) {
     // TODO(spoon, grek) make a set to hold these names
     for (JribbleUnit unit : looseJavaUnits) {
@@ -132,14 +140,6 @@ public class CompilationState {
       }
     }
     return false;
-  }
-
-  public Iterable<JribbleUnit> getLooseJavaUnits() {
-    return looseJavaUnits;
-  }
-
-  public TypeOracle getTypeOracle() {
-    return mediator.getTypeOracle();
   }
 
   private void assimilateUnits(TreeLogger logger,

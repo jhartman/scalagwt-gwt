@@ -152,13 +152,11 @@ public class TypeMap {
       return get((Ref) type);
     } else if (type instanceof com.google.jribble.ast.Void$) {
       return JPrimitiveType.VOID;
-    } else throw new InternalCompilerException("Unknown type " + type);
+    } else {
+      throw new InternalCompilerException("Unknown type " + type);
+    }
   }
   
-  private String refName(Ref ref) {
-    return ref.pkg().name().replace('/', '.') + "." + ref.name();
-  }
-
   public JMethod getMethod(String typeName, String methodJsniSignature) {
     return methodsByName.get(methodDescriptor(typeName, methodJsniSignature));
   }
@@ -252,5 +250,9 @@ public class TypeMap {
     } else {
       return null;
     }
+  }
+
+  private String refName(Ref ref) {
+    return ref.pkg().name().replace('/', '.') + "." + ref.name();
   }
 }

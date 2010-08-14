@@ -21,7 +21,7 @@ import com.google.gwt.dev.jjs.ast.Context;
  * An interface for visitors that can handle Jribble nodes.
  */
 public interface JribVisitor {
-  public boolean visit(JribMethodCall x, Context ctx);
-
   public void endVisit(JribMethodCall x, Context ctx);
+
+  public boolean visit(JribMethodCall x, Context ctx);
 }
