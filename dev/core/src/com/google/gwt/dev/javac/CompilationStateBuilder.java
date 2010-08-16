@@ -20,14 +20,11 @@ import com.google.gwt.core.ext.UnableToCompleteException;
 import com.google.gwt.dev.javac.CompilationUnitBuilder.GeneratedCompilationUnitBuilder;
 import com.google.gwt.dev.javac.CompilationUnitBuilder.ResourceCompilationUnitBuilder;
 import com.google.gwt.dev.javac.JdtCompiler.UnitProcessor;
-import com.google.gwt.dev.javac.jribble.JribbleParser;
 import com.google.gwt.dev.javac.jribble.JribbleUnit;
-import com.google.gwt.dev.jjs.ast.JDeclaredType;
-import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.gwt.dev.resource.Resource;
-import com.google.gwt.dev.util.Pair;
 import com.google.gwt.dev.util.Util;
+import com.google.jribble.DefParser;
 import com.google.jribble.ast.DeclaredType;
 
 import org.apache.commons.collections.map.AbstractReferenceMap;
@@ -44,8 +41,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Manages a centralized cache for compiled units.
@@ -297,7 +294,7 @@ public class CompilationStateBuilder {
     // Invalidate units with invalid refs.
     invalidateUnitsWithInvalidRefs(logger, resultUnits,
         Collections.<ContentId> emptySet());
-    return new CompilationState(logger,  resultUnits.values(), parseAllLooseJava(logger,
+    return new CompilationState(logger,  resultUnits.values(), parseAllJribbleUnits(logger,
         resources),compileMoreLater);
   }
 
@@ -349,18 +346,17 @@ public class CompilationStateBuilder {
     return source.getPath().endsWith(".jribble");
   }
   
-  private Iterable<JribbleUnit> parseAllLooseJava(TreeLogger logger,
+  private Iterable<JribbleUnit> parseAllJribbleUnits(TreeLogger logger,
       Iterable<Resource> sources) {
     List<JribbleUnit> units = new ArrayList<JribbleUnit>();
-    JProgram program = new JProgram();
+    DefParser parser = new DefParser();
     for (Resource source : sources) {
       if (!isJribbleFile(source)) {
         continue;
       }
-      Pair<JDeclaredType, DeclaredType> pair;
+      DeclaredType type;
       try {
-        pair = JribbleParser.parse(program, Util.createReader(logger, 
-            source.openContents()));
+        type = parser.parse(Util.createReader(logger, source.openContents()));
       } catch (Exception e) {
         if (e instanceof UnableToCompleteException) {
           // bad unit; skip it
@@ -370,7 +366,7 @@ public class CompilationStateBuilder {
           throw new RuntimeException(e);
         }
       }
-      units.add(new JribbleUnit(pair.left.getName(), pair.right, pair.left));
+      units.add(new JribbleUnit(type.name().javaName(), type));
     }
     return units;
   }

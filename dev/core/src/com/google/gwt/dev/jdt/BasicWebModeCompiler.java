@@ -78,7 +78,7 @@ public class BasicWebModeCompiler extends AbstractCompiler {
         seedTypeNames.length + intfTypes.size());
 
     for (String seedTypeName : seedTypeNames) {
-      if (compilationState.isLooseJavaType(seedTypeName)) {
+      if (compilationState.isJribbleType(seedTypeName)) {
         // All Loose Java classes are pulled in
         continue;
       }

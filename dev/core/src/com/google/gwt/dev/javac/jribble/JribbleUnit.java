@@ -15,7 +15,6 @@
  */
 package com.google.gwt.dev.javac.jribble;
 
-import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.jribble.ast.DeclaredType;
 
 /**
@@ -23,13 +22,10 @@ import com.google.jribble.ast.DeclaredType;
  */
 public class JribbleUnit {
   private final String name;
-  private final JDeclaredType syntaxTree;
   private final DeclaredType jribbleSyntaxTree;
 
-  public JribbleUnit(String name, DeclaredType jribbleSyntaxTree,
-      JDeclaredType syntaxTree) {
+  public JribbleUnit(String name, DeclaredType jribbleSyntaxTree) {
     this.name = name;
-    this.syntaxTree = syntaxTree;
     this.jribbleSyntaxTree = jribbleSyntaxTree;
   }
 
@@ -39,16 +35,6 @@ public class JribbleUnit {
 
   public String getName() {
     return name;
-  }
-
-  /**
-   * Return the syntax tree. The {@link com.google.gwt.dev.jjs.ast.JNode}
-   * hierarchy is mostly reused, but some node types replaced by Loose Java
-   * equivalents. {@link com.google.gwt.dev.jjs.impl.GenerateJavaAST} can
-   * convert this syntax tree to a proper JJS syntax tree.
-   */
-  public JDeclaredType getSyntaxTree() {
-    return syntaxTree;
   }
 
   @Override

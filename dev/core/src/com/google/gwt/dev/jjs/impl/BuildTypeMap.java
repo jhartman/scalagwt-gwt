@@ -175,7 +175,7 @@ public class BuildTypeMap {
     public void classDef(ClassDef def) {
       SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
       JClassType newType;
-      newType = program.createClass(info, refName(def.name()), def.modifs().contains("abstract"), 
+      newType = program.createClass(info, def.name().javaName(), def.modifs().contains("abstract"), 
           def.modifs().contains("final"));
       addToMap(newType);
     }
@@ -183,13 +183,8 @@ public class BuildTypeMap {
     public void interfaceDef(InterfaceDef def) {
       SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
       JInterfaceType newType;
-      newType = program.createInterface(info, refName(def.name()));
+      newType = program.createInterface(info, def.name().javaName());
       addToMap(newType);
-    }
-
-    // TODO(grek) Ref should have a method for that
-    public String refName(Ref ref) {
-      return ref.pkg().name().replace('/', '.') + "." + ref.name();
     }
     
     private void addToMap(JDeclaredType type) {
@@ -1006,9 +1001,9 @@ public class BuildTypeMap {
 
   public static TypeDeclaration[] exec(TypeMap typeMap,
       CompilationUnitDeclaration[] unitDecls,
-      Iterable<JribbleUnit> looseJavaUnits, JsProgram jsProgram) {
-    createPeersForTypes(unitDecls, looseJavaUnits, typeMap);
-    return createPeersForNonTypeDecls(unitDecls, looseJavaUnits, typeMap,
+      Iterable<JribbleUnit> jribbleUnits, JsProgram jsProgram) {
+    createPeersForTypes(unitDecls, jribbleUnits, typeMap);
+    return createPeersForNonTypeDecls(unitDecls, jribbleUnits, typeMap,
         jsProgram);
   }
 
@@ -1050,7 +1045,7 @@ public class BuildTypeMap {
 
   private static TypeDeclaration[] createPeersForNonTypeDecls(
       CompilationUnitDeclaration[] unitDecls,
-      Iterable<JribbleUnit> looseJavaUnits, TypeMap typeMap, JsProgram jsProgram) {
+      Iterable<JribbleUnit> jribbleUnits, TypeMap typeMap, JsProgram jsProgram) {
     // Traverse again to create our JNode peers for each method, field,
     // parameter, and local
     BuildDeclMapVisitor v2 = new BuildDeclMapVisitor(typeMap, jsProgram);
@@ -1059,7 +1054,7 @@ public class BuildTypeMap {
     }
 
     BuildDeclMapForJribble v2b = new BuildDeclMapForJribble(typeMap);
-    for (JribbleUnit unit : looseJavaUnits) {
+    for (JribbleUnit unit : jribbleUnits) {
       if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
         v2b.classDef((ClassDef) unit.getJribbleSyntaxTree());
       } else {
@@ -1072,7 +1067,7 @@ public class BuildTypeMap {
 
   private static void createPeersForTypes(
       CompilationUnitDeclaration[] unitDecls,
-      Iterable<JribbleUnit> looseJavaUnits, TypeMap typeMap) {
+      Iterable<JribbleUnit> jribbleUnits, TypeMap typeMap) {
     // Traverse once to create our JNode peers for each type
     BuildTypeMapVisitor v1 = new BuildTypeMapVisitor(typeMap);
     for (int i = 0; i < unitDecls.length; ++i) {
@@ -1080,7 +1075,7 @@ public class BuildTypeMap {
     }
 
     BuildTypeMapForJribble v1b = new BuildTypeMapForJribble(typeMap);
-    for (JribbleUnit unit : looseJavaUnits) {
+    for (JribbleUnit unit : jribbleUnits) {
       if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
         v1b.classDef((ClassDef) unit.getJribbleSyntaxTree());
       } else {
@@ -1089,7 +1084,7 @@ public class BuildTypeMap {
     }
     
     FillInSuperTypesForJribble v1c = new FillInSuperTypesForJribble(typeMap);
-    for (JribbleUnit unit : looseJavaUnits) {
+    for (JribbleUnit unit : jribbleUnits) {
       if (unit.getJribbleSyntaxTree() instanceof ClassDef) {
         v1c.classDef((ClassDef) unit.getJribbleSyntaxTree());
       } else {

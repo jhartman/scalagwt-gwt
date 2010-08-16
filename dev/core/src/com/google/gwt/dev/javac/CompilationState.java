@@ -72,7 +72,7 @@ public class CompilationState {
   /**
    * Loose Java units that are part of this compilation.
    */
-  private Iterable<JribbleUnit> looseJavaUnits;
+  private Iterable<JribbleUnit> jribbleUnits;
 
   /**
    * Controls our type oracle.
@@ -80,10 +80,10 @@ public class CompilationState {
   private final TypeOracleMediator mediator = new TypeOracleMediator();
 
   CompilationState(TreeLogger logger, Collection<CompilationUnit> units,
-      Iterable<JribbleUnit> looseJavaUnits, CompileMoreLater compileMoreLater) {
+      Iterable<JribbleUnit> jribbleUnits, CompileMoreLater compileMoreLater) {
     this.compileMoreLater = compileMoreLater;
-    this.looseJavaUnits = looseJavaUnits;
-    assimilateUnits(logger, units, looseJavaUnits);
+    this.jribbleUnits = jribbleUnits;
+    assimilateUnits(logger, units, jribbleUnits);
   }
 
   public void addGeneratedCompilationUnits(TreeLogger logger,
@@ -124,17 +124,17 @@ public class CompilationState {
     return exposedUnits;
   }
 
-  public Iterable<JribbleUnit> getLooseJavaUnits() {
-    return looseJavaUnits;
+  public Iterable<JribbleUnit> getJribbleUnits() {
+    return jribbleUnits;
   }
 
   public TypeOracle getTypeOracle() {
     return mediator.getTypeOracle();
   }
 
-  public boolean isLooseJavaType(String seedTypeName) {
+  public boolean isJribbleType(String seedTypeName) {
     // TODO(spoon, grek) make a set to hold these names
-    for (JribbleUnit unit : looseJavaUnits) {
+    for (JribbleUnit unit : jribbleUnits) {
       if (unit.getName().equals(seedTypeName)) {
         return true;
       }

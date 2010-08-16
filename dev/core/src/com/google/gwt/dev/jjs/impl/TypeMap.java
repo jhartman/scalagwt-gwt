@@ -140,7 +140,7 @@ public class TypeMap {
   }
   
   public JDeclaredType get(Ref ref) {
-    String refName = refName(ref);
+    String refName = ref.javaName();
     assert declaredTypesByName.containsKey(refName);
     return declaredTypesByName.get(refName);
   }
@@ -156,7 +156,7 @@ public class TypeMap {
       throw new InternalCompilerException("Unknown type " + type);
     }
   }
-  
+
   public JMethod getMethod(String typeName, String methodJsniSignature) {
     return methodsByName.get(methodDescriptor(typeName, methodJsniSignature));
   }
@@ -250,9 +250,5 @@ public class TypeMap {
     } else {
       return null;
     }
-  }
-
-  private String refName(Ref ref) {
-    return ref.pkg().name().replace('/', '.') + "." + ref.name();
   }
 }

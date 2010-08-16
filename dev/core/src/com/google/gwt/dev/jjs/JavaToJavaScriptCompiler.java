@@ -474,7 +474,7 @@ public class JavaToJavaScriptCompiler {
     allRootTypes.addAll(JProgram.CODEGEN_TYPES_SET);
     allRootTypes.addAll(JProgram.INDEX_TYPES_SET);
     allRootTypes.add(FragmentLoaderCreator.ASYNC_FRAGMENT_LOADER);
-    allRootTypes.addAll(findRefsFromLooseJava(compilationState));
+    allRootTypes.addAll(findRefsFromJribble(compilationState));
 
     Memory.maybeDumpMemory("CompStateBuilt");
 
@@ -514,7 +514,7 @@ public class JavaToJavaScriptCompiler {
        */
       TypeMap typeMap = new TypeMap(jprogram);
       TypeDeclaration[] allTypeDeclarations = BuildTypeMap.exec(typeMap,
-          goldenCuds, compilationState.getLooseJavaUnits(), jsProgram);
+          goldenCuds, compilationState.getJribbleUnits(), jsProgram);
 
       // BuildTypeMap can uncover syntactic JSNI errors; report & abort
       checkForErrors(logger, goldenCuds, true);
@@ -524,7 +524,7 @@ public class JavaToJavaScriptCompiler {
 
       // (2) Create our own Java AST from the JDT AST.
       GenerateJavaAST.exec(allTypeDeclarations,
-          compilationState.getLooseJavaUnits(), typeMap, jprogram, jsProgram,
+          compilationState.getJribbleUnits(), typeMap, jprogram, jsProgram,
           options);
 
       // GenerateJavaAST can uncover semantic JSNI errors; report & abort
@@ -917,7 +917,7 @@ public class JavaToJavaScriptCompiler {
     return null;
   }
 
-  private static Collection<String> findRefsFromLooseJava(
+  private static Collection<String> findRefsFromJribble(
       CompilationState compilationState) {
     final List<String> refs = new LinkedList<String>();
     
@@ -934,10 +934,6 @@ public class JavaToJavaScriptCompiler {
         }
       }
       
-      public String refName(Ref ref) {
-        return ref.pkg().name().replace('/', '.') + "." + ref.name();
-      }
-      
       private void call(Signature signature, List<Expression> params) {
         signature(signature);
         params(params);
@@ -945,10 +941,10 @@ public class JavaToJavaScriptCompiler {
       
       private void classDef(ClassDef classDef) {
         if (classDef.ext().isDefined()) {
-          refs.add(refName(classDef.ext().get()));
+          refs.add(classDef.ext().get().javaName());
         }
         for (Ref i : classDef.jimplements()) {
-          refs.add(refName(i));
+          refs.add(i.javaName());
         }
         for (Constructor x : classDef.jconstructors()) {
           constructor(x);
@@ -986,7 +982,7 @@ public class JavaToJavaScriptCompiler {
           call(call.signature(), call.jparams());
         } else if (x instanceof StaticMethodCall) {
           StaticMethodCall call = (StaticMethodCall) x;
-          refs.add(refName(call.classRef()));
+          refs.add(call.classRef().javaName());
           call(call.signature(), call.jparams());
         } else if ((x instanceof VarRef) || (x instanceof ThisRef$) || (x instanceof Literal)) {
           // do nothing as these expression cannot introduce new refs
@@ -997,7 +993,7 @@ public class JavaToJavaScriptCompiler {
       
       private void interfaceDef(InterfaceDef def) {
         if (def.ext().isDefined()) {
-          refs.add(refName(def.ext().get()));
+          refs.add(def.ext().get().javaName());
         }
         for (MethodDef x : def.jbody()) {
           methodDef(x);
@@ -1039,7 +1035,7 @@ public class JavaToJavaScriptCompiler {
       }
       
       private void signature(Signature x) {
-        refs.add(refName(x.on()));
+        refs.add(x.on().javaName());
         for (Type t : x.jparamTypes()) {
           type(t);
         }
@@ -1048,7 +1044,7 @@ public class JavaToJavaScriptCompiler {
 
       private void type(Type x) {
         if (x instanceof Ref) {
-          refs.add(refName((Ref) x));
+          refs.add(((Ref) x).javaName());
         } else if (x instanceof Array) {
           type(((Array) x).typ());
         }
@@ -1056,7 +1052,7 @@ public class JavaToJavaScriptCompiler {
     }
     FindRefs findRefs = new FindRefs();
 
-    for (JribbleUnit unit : compilationState.getLooseJavaUnits()) {
+    for (JribbleUnit unit : compilationState.getJribbleUnits()) {
       findRefs.declaredType(unit.getJribbleSyntaxTree());
     }
     return refs;

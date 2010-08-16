@@ -293,7 +293,7 @@ public class TypeOracleMediator {
    * @param units collection of compilation units to process
    */
   public void addNewUnits(TreeLogger logger, Collection<CompilationUnit> units,
-      Iterable<JribbleUnit> looseJavaUnits) {
+      Iterable<JribbleUnit> jribbleUnits) {
     PerfLogger.start("TypeOracleMediator.addNewUnits");
     // First collect all class data.
     classMap = new HashMap<String, CollectClassData>();
@@ -312,7 +312,7 @@ public class TypeOracleMediator {
       }
     }
 
-    for (JribbleUnit unit : looseJavaUnits) {
+    for (JribbleUnit unit : jribbleUnits) {
       String fullName = unit.getName();
       String packageName;
       String shortName;
