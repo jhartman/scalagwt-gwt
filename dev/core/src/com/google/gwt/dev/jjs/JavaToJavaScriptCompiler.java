@@ -917,7 +917,7 @@ public class JavaToJavaScriptCompiler {
     return null;
   }
 
-  private static Collection<String> findRefsFromJribble(
+  public static Collection<String> findRefsFromJribble(
       CompilationState compilationState) {
     final List<String> refs = new LinkedList<String>();
     
