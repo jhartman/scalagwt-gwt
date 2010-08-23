@@ -956,7 +956,7 @@ public class JavaToJavaScriptCompiler {
       
       private void constructor(Constructor c) {
         paramDefs(c.jparams());
-        for (ConstructorStatement x : c.jbody()) {
+        for (ConstructorStatement x : c.body().jstatements()) {
           constructorStatement(x);
         }
       }
@@ -1002,7 +1002,7 @@ public class JavaToJavaScriptCompiler {
       
       private void methodDef(MethodDef def) {
         paramDefs(def.jparams());
-        for (MethodStatement x : def.jbody()) {
+        for (MethodStatement x : def.body().jstatements()) {
           methodStatement(x);
         }
       }

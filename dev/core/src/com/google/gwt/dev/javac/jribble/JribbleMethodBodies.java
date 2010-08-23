@@ -115,7 +115,7 @@ public class JribbleMethodBodies {
     JMethod jc = findMethod(enclosingClass, constructor.signature(classDef.name()));
     JMethodBody body = (JMethodBody) jc.getBody();
     JBlock block = body.getBlock();
-    for (ConstructorStatement x : constructor.jbody()) {
+    for (ConstructorStatement x : constructor.body().jstatements()) {
       final JStatement js;
       if (x instanceof SuperConstructorCall)
         js = superConstructorCall((SuperConstructorCall)x, varDict, paramDict, 
@@ -177,7 +177,7 @@ public class JribbleMethodBodies {
     JMethod m = findMethod(enclosingClass, def.signature(classDef.name()));
     JMethodBody body = (JMethodBody) m.getBody();
     JBlock block = body.getBlock();
-    for (MethodStatement x : def.jbody()) {
+    for (MethodStatement x : def.body().jstatements()) {
       JStatement js = methodStatement(x, varDict, paramDict, body, enclosingClass);
       block.addStmt(js);
     }
