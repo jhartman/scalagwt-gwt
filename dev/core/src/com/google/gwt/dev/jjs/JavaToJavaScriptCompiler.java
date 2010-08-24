@@ -128,20 +128,22 @@ import com.google.gwt.soyc.SoycDashboard;
 import com.google.gwt.soyc.io.ArtifactsOutputDirectory;
 import com.google.jribble.ast.Array;
 import com.google.jribble.ast.Assignment;
+import com.google.jribble.ast.Block;
 import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
-import com.google.jribble.ast.ConstructorStatement;
 import com.google.jribble.ast.DeclaredType;
 import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.If;
 import com.google.jribble.ast.InterfaceDef;
 import com.google.jribble.ast.Literal;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
-import com.google.jribble.ast.MethodStatement;
 import com.google.jribble.ast.NewCall;
 import com.google.jribble.ast.ParamDef;
 import com.google.jribble.ast.Ref;
 import com.google.jribble.ast.Signature;
+import com.google.jribble.ast.Statement;
 import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.SuperConstructorCall;
 import com.google.jribble.ast.ThisRef$;
@@ -956,17 +958,15 @@ public class JavaToJavaScriptCompiler {
       
       private void constructor(Constructor c) {
         paramDefs(c.jparams());
-        for (ConstructorStatement x : c.body().jstatements()) {
+        for (Statement x : c.body().jstatements()) {
           constructorStatement(x);
         }
       }
       
-      private void constructorStatement(ConstructorStatement x) {
+      private void constructorStatement(Statement x) {
         if (x instanceof SuperConstructorCall) {
           SuperConstructorCall call = (SuperConstructorCall) x;
           call(call.signature(), call.jparams());
-        } else if (x instanceof MethodStatement) {
-          methodStatement((MethodStatement) x);
         } else {
           throw new RuntimeException("Unsupported node " + x);
         }
@@ -984,6 +984,11 @@ public class JavaToJavaScriptCompiler {
           StaticMethodCall call = (StaticMethodCall) x;
           refs.add(call.classRef().javaName());
           call(call.signature(), call.jparams());
+        } else if (x instanceof Conditional) {
+          Conditional conditional = (Conditional) x;
+          expression(conditional.condition());
+          expression(conditional.then());
+          expression(conditional.elsee());
         } else if ((x instanceof VarRef) || (x instanceof ThisRef$) || (x instanceof Literal)) {
           // do nothing as these expression cannot introduce new refs
         } else {
@@ -1002,12 +1007,20 @@ public class JavaToJavaScriptCompiler {
       
       private void methodDef(MethodDef def) {
         paramDefs(def.jparams());
-        for (MethodStatement x : def.body().jstatements()) {
-          methodStatement(x);
+        block(def.body());
+      }
+      
+      private void block(Block block) {
+        for (Statement x : block.jstatements()) {
+          if (x instanceof SuperConstructorCall) {
+            constructorStatement(x);
+          } else { 
+            methodStatement(x);
+          }
         }
       }
       
-      private void methodStatement(MethodStatement x) {
+      private void methodStatement(Statement x) {
         if (x instanceof VarDef) {
           VarDef def = (VarDef) x;
           type(def.typ());
@@ -1017,8 +1030,18 @@ public class JavaToJavaScriptCompiler {
           expression(assignement.value());
         } else if (x instanceof Expression) {
           expression((Expression) x);
+        } else if (x instanceof If) {
+          ifStmt((If) x);
         } else {
           throw new RuntimeException("Unsupported node " + x);
+        }
+      }
+      
+      private void ifStmt(If x) {
+        expression(x.condition());
+        block(x.then());
+        if (x.elsee().isDefined()) {
+          block(x.elsee().get());
         }
       }
       

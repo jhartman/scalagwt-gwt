@@ -20,11 +20,13 @@ import static com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
 
 import com.google.gwt.dev.jjs.ast.JBlock;
 import com.google.gwt.dev.jjs.ast.JClassType;
+import com.google.gwt.dev.jjs.ast.JConditional;
 import com.google.gwt.dev.jjs.ast.JConstructor;
 import com.google.gwt.dev.jjs.ast.JDeclarationStatement;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JExpression;
 import com.google.gwt.dev.jjs.ast.JExpressionStatement;
+import com.google.gwt.dev.jjs.ast.JIfStatement;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JLocalRef;
 import com.google.gwt.dev.jjs.ast.JMethod;
@@ -41,16 +43,19 @@ import com.google.gwt.dev.jjs.ast.JVariableRef;
 import com.google.gwt.dev.jjs.impl.BuildTypeMap;
 import com.google.gwt.dev.jjs.impl.TypeMap;
 import com.google.jribble.ast.Assignment;
+import com.google.jribble.ast.Block;
+import com.google.jribble.ast.BooleanLiteral;
 import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
-import com.google.jribble.ast.ConstructorStatement;
 import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.If;
 import com.google.jribble.ast.Literal;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
-import com.google.jribble.ast.MethodStatement;
 import com.google.jribble.ast.NewCall;
 import com.google.jribble.ast.Signature;
+import com.google.jribble.ast.Statement;
 import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.StringLiteral;
 import com.google.jribble.ast.SuperConstructorCall;
@@ -79,8 +84,8 @@ import java.util.Map;
  */
 public class JribbleMethodBodies {
   
-  private final TypeMap typeMap;
   private final JProgram program;
+  private final TypeMap typeMap;
   
   public JribbleMethodBodies(TypeMap typeMap) {
     this.typeMap = typeMap;
@@ -96,6 +101,20 @@ public class JribbleMethodBodies {
     return JProgram.createAssignmentStmt(UNKNOWN, ref, expr);
   }
   
+  public void block(Block block, JBlock jblock, Map<String, JLocal> varDict, 
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody, JClassType enclosingClass) {
+    for (Statement x : block.jstatements()) {
+      final JStatement js;
+      if (x instanceof SuperConstructorCall) {
+        js = superConstructorCall((SuperConstructorCall)x, varDict, paramDict, 
+            enclosingClass).makeStatement();
+      } else {
+        js = methodStatement(x, varDict, paramDict, enclosingBody, enclosingClass);
+      }
+      jblock.addStmt(js);
+    }
+  }
+  
   public void classDef(ClassDef def) {
     JClassType clazz = (JClassType) typeMap.get(def.name());
     List<Constructor> constructors = def.jconstructors();
@@ -108,30 +127,29 @@ public class JribbleMethodBodies {
     }
   }
   
+  public JConditional conditional(Conditional conditional, Map<String, JLocal> varDict, 
+      Map<String, JParameter> paramDict, JClassType enclosingType) {
+    JExpression condition = expression(conditional.condition(), varDict, paramDict, enclosingType);
+    JExpression then = expression(conditional.then(), varDict, paramDict, enclosingType);
+    JExpression elsee = expression(conditional.elsee(), varDict, paramDict, enclosingType);
+    return new JConditional(UNKNOWN, type(conditional.typ()), condition, then, elsee);
+  }
+  
   public void constructor(Constructor constructor, ClassDef classDef, 
       JClassType enclosingClass) {
     Map<String, JLocal> varDict = new HashMap<String, JLocal>();
     Map<String, JParameter> paramDict = new HashMap<String, JParameter>();
     JMethod jc = findMethod(enclosingClass, constructor.signature(classDef.name()));
     JMethodBody body = (JMethodBody) jc.getBody();
-    JBlock block = body.getBlock();
-    for (ConstructorStatement x : constructor.body().jstatements()) {
-      final JStatement js;
-      if (x instanceof SuperConstructorCall)
-        js = superConstructorCall((SuperConstructorCall)x, varDict, paramDict, 
-            enclosingClass).makeStatement();
-      else if (x instanceof MethodStatement)
-        js = methodStatement((MethodStatement)x, varDict, paramDict, body, enclosingClass);
-      else throw new RuntimeException("Unexpected case " + x);
-      block.addStmt(js);
-    }
+    JBlock jblock = body.getBlock();
+    block(constructor.body(), jblock, varDict, paramDict, body, enclosingClass);
   }
   
   public JExpression expression(Expression expr, Map<String, JLocal> varDict, 
       Map<String, JParameter> paramDict, JClassType enclosingType) {
-    if (expr instanceof Literal)
-      return literal((Literal)expr);
-    else if (expr instanceof ThisRef$) {
+    if (expr instanceof Literal) {
+      return literal((Literal) expr);
+    } else if (expr instanceof ThisRef$) {
       return thisRef(enclosingType);
     } else if (expr instanceof MethodCall) {
       return methodCall((MethodCall) expr, varDict, paramDict, enclosingType);
@@ -143,14 +161,32 @@ public class JribbleMethodBodies {
       return varRef((VarRef) expr, varDict, paramDict);
     } else if (expr instanceof NewCall) {
       return newCall((NewCall) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof Conditional) {
+      return conditional((Conditional) expr, varDict, paramDict, enclosingType);
     } else {
       throw new RuntimeException("to be implemented handling of " + expr);
     }
   }
   
+  public JIfStatement ifStmt(If statement, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody, JClassType enclosingClass) {
+    JExpression condition = expression(statement.condition(), varDict, paramDict, enclosingClass);
+    
+    final JBlock then = new JBlock(UNKNOWN); 
+    block(statement.then(), then, varDict, paramDict, enclosingBody, enclosingClass);
+    JBlock elsee = null;
+    if (statement.elsee().isDefined()) {
+      elsee = new JBlock(UNKNOWN);
+      block(statement.elsee().get(), elsee, varDict, paramDict, enclosingBody, enclosingClass);
+    }
+    return new JIfStatement(UNKNOWN, condition, then, elsee);
+  }
+  
   public JExpression literal(Literal literal) {
     if (literal instanceof StringLiteral) {
       return program.getLiteralString(UNKNOWN, ((StringLiteral) literal).v());
+    } else if (literal instanceof BooleanLiteral) {
+      return program.getLiteralBoolean(((BooleanLiteral) literal).v());
     } else {
       throw new RuntimeException("to be implemented");
     }
@@ -170,28 +206,30 @@ public class JribbleMethodBodies {
     jcall.addArgs(params);
     return jcall;
   }
-  
+
   public void methodDef(MethodDef def, JClassType enclosingClass, ClassDef classDef) {
     Map<String, JLocal> varDict = new HashMap<String, JLocal>();
     Map<String, JParameter> paramDict = new HashMap<String, JParameter>();
     JMethod m = findMethod(enclosingClass, def.signature(classDef.name()));
     JMethodBody body = (JMethodBody) m.getBody();
     JBlock block = body.getBlock();
-    for (MethodStatement x : def.body().jstatements()) {
+    for (Statement x : def.body().jstatements()) {
       JStatement js = methodStatement(x, varDict, paramDict, body, enclosingClass);
       block.addStmt(js);
     }
   }
-
-  public JStatement methodStatement(MethodStatement statement, 
+  
+  public JStatement methodStatement(Statement statement, 
       Map<String, JLocal> varDict, Map<String, JParameter> paramDict, 
       JMethodBody enclosingBody, JClassType enclosingClass) {
-    if (statement instanceof VarDef)
-      return varDef((VarDef)statement, varDict, paramDict, enclosingBody, enclosingClass);
-    else if (statement instanceof Assignment)
-      return assignment((Assignment)statement, varDict, paramDict, enclosingBody, enclosingClass);
-    else if (statement instanceof Expression) {
+    if (statement instanceof VarDef) {
+      return varDef((VarDef) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof Assignment) {
+      return assignment((Assignment) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof Expression) {
       return expression((Expression) statement, varDict, paramDict, enclosingClass).makeStatement();
+    } else if (statement instanceof If) {
+      return ifStmt((If) statement, varDict, paramDict, enclosingBody, enclosingClass);
     } else throw new RuntimeException("Unexpected case " + statement);
   }
   
@@ -229,7 +267,7 @@ public class JribbleMethodBodies {
     List<JExpression> params = params(signature.jparamTypes(), call.jparams(), varDict, 
         paramDict, enclosingType);
     JMethodCall jcall = new JMethodCall(UNKNOWN, thisRef(enclosingType), method);
-    //not sure why this is needed; inspired by JavaASTGenerationVisitor.processConstructor
+    // not sure why this is needed; inspired by JavaASTGenerationVisitor.processConstructor
     jcall.setStaticDispatchOnly();
     jcall.addArgs(params);
     return jcall;
