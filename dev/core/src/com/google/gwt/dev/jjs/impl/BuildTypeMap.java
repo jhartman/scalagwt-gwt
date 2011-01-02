@@ -145,9 +145,13 @@ public class BuildTypeMap {
     
     private void methodDef(MethodDef def, JDeclaredType enclosingType) {
       SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      boolean isAbstract = def.modifs().contains("abstract");
+      boolean isStatic = def.modifs().contains("static");
+      boolean isFinal = def.modifs().contains("final");
+      boolean isPrivate = def.modifs().contains("private"); 
       JMethod method = program.createMethod(info, def.name(), enclosingType,
           // TODO(grek): hard-coded modifiers
-          typeMap.get(def.returnType()), false, false, false, false, false);
+          typeMap.get(def.returnType()), isAbstract, isStatic, isFinal, isPrivate, false);
       paramDefs(def.jparams(), method);
       method.freezeParamTypes();
       typeMap.put(method);
