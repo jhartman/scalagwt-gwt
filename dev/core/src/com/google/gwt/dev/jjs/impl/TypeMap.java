@@ -66,6 +66,8 @@ public class TypeMap {
   private Map<String, JField> fieldsByName = new HashMap<String, JField>();
 
   private Map<String, JMethod> methodsByName = new HashMap<String, JMethod>();
+  
+  private final Map<String, JPrimitiveType> primitive = new HashMap<String, JPrimitiveType>();
 
   /**
    * Centralizes creation and singleton management.
@@ -74,6 +76,14 @@ public class TypeMap {
 
   public TypeMap(JProgram program) {
     this.program = program;
+    primitive.put(JPrimitiveType.BOOLEAN.getJsniSignatureName(), JPrimitiveType.BOOLEAN);
+    primitive.put(JPrimitiveType.BYTE.getJsniSignatureName(), JPrimitiveType.BYTE);
+    primitive.put(JPrimitiveType.CHAR.getJsniSignatureName(), JPrimitiveType.CHAR);
+    primitive.put(JPrimitiveType.DOUBLE.getJsniSignatureName(), JPrimitiveType.DOUBLE);
+    primitive.put(JPrimitiveType.FLOAT.getJsniSignatureName(), JPrimitiveType.FLOAT);
+    primitive.put(JPrimitiveType.INT.getJsniSignatureName(), JPrimitiveType.INT);
+    primitive.put(JPrimitiveType.LONG.getJsniSignatureName(), JPrimitiveType.LONG);
+    primitive.put(JPrimitiveType.SHORT.getJsniSignatureName(), JPrimitiveType.SHORT);
   }
 
   public JNode get(Binding binding) {
@@ -153,7 +163,7 @@ public class TypeMap {
   
   public JType get(Type type) {
     if (type instanceof Primitive) {
-      throw new InternalCompilerException("Handling of primitive types is to be implemented");
+      return primitive.get(((Primitive) type).name());
     } else if (type instanceof Ref) {
       return get((Ref) type);
     } else if (type instanceof com.google.jribble.ast.Void$) {
