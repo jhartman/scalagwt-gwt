@@ -26,6 +26,7 @@ import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.jjs.ast.JReferenceType;
 import com.google.gwt.dev.jjs.ast.JType;
 import com.google.gwt.dev.util.collect.HashMap;
+import com.google.jribble.ast.Array;
 import com.google.jribble.ast.Primitive;
 import com.google.jribble.ast.Ref;
 import com.google.jribble.ast.Type;
@@ -168,6 +169,14 @@ public class TypeMap {
       return get((Ref) type);
     } else if (type instanceof com.google.jribble.ast.Void$) {
       return JPrimitiveType.VOID;
+    } else if (type instanceof com.google.jribble.ast.Array) {
+      com.google.jribble.ast.Array array = (Array) type;
+      int dims = 1;
+      while (array.typ() instanceof Array) {
+        dims++;
+        array = (Array) array.typ();
+      }
+      return program.getTypeArray(get(array.typ()), dims);
     } else {
       throw new InternalCompilerException("Unknown type " + type);
     }
