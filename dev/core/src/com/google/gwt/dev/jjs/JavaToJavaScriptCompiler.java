@@ -127,29 +127,49 @@ import com.google.gwt.dev.util.collect.Maps;
 import com.google.gwt.soyc.SoycDashboard;
 import com.google.gwt.soyc.io.ArtifactsOutputDirectory;
 import com.google.jribble.ast.Array;
+import com.google.jribble.ast.ArrayInitializer;
+import com.google.jribble.ast.ArrayLength;
+import com.google.jribble.ast.ArrayRef;
 import com.google.jribble.ast.Assignment;
+import com.google.jribble.ast.BinaryOp;
 import com.google.jribble.ast.Block;
+import com.google.jribble.ast.Break;
+import com.google.jribble.ast.Cast;
 import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.ClassOf;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
+import com.google.jribble.ast.ConstructorCall;
+import com.google.jribble.ast.Continue;
 import com.google.jribble.ast.DeclaredType;
 import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.FieldRef;
 import com.google.jribble.ast.If;
+import com.google.jribble.ast.InstanceOf;
 import com.google.jribble.ast.InterfaceDef;
 import com.google.jribble.ast.Literal;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
+import com.google.jribble.ast.NewArray;
 import com.google.jribble.ast.NewCall;
+import com.google.jribble.ast.Not;
 import com.google.jribble.ast.ParamDef;
 import com.google.jribble.ast.Ref;
+import com.google.jribble.ast.Return;
 import com.google.jribble.ast.Signature;
 import com.google.jribble.ast.Statement;
+import com.google.jribble.ast.StaticFieldRef;
 import com.google.jribble.ast.StaticMethodCall;
-import com.google.jribble.ast.SuperConstructorCall;
+import com.google.jribble.ast.Switch;
 import com.google.jribble.ast.ThisRef$;
+import com.google.jribble.ast.SuperRef$;
+import com.google.jribble.ast.Throw;
+import com.google.jribble.ast.Try;
 import com.google.jribble.ast.Type;
+import com.google.jribble.ast.UnaryOp;
 import com.google.jribble.ast.VarDef;
 import com.google.jribble.ast.VarRef;
+import com.google.jribble.ast.While;
 
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -175,6 +195,12 @@ import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
 import javax.xml.parsers.ParserConfigurationException;
+
+import scala.Option;
+
+import scala.Tuple3;
+
+import scala.Tuple2;
 
 /**
  * Compiles the Java <code>JProgram</code> representation into its corresponding
@@ -959,23 +985,22 @@ public class JavaToJavaScriptCompiler {
       private void constructor(Constructor c) {
         paramDefs(c.jparams());
         for (Statement x : c.body().jstatements()) {
-          constructorStatement(x);
+          if (x instanceof ConstructorCall) {
+            constructorCall((ConstructorCall) x);
+          } else {
+            methodStatement(x);
+          }
         }
       }
       
-      private void constructorStatement(Statement x) {
-        if (x instanceof SuperConstructorCall) {
-          SuperConstructorCall call = (SuperConstructorCall) x;
-          call(call.signature(), call.jparams());
-        } else {
-          throw new RuntimeException("Unsupported node " + x);
-        }
+      private void constructorCall(ConstructorCall x) {
+        call(x.signature(), x.jparams());
       }
       
       private void expression(Expression x) {
         if (x instanceof NewCall) {
           NewCall call = (NewCall) x;
-          call(call.signature(), call.jparams());
+          constructorCall(call.constructor());
         } else if (x instanceof MethodCall) {
           MethodCall call = (MethodCall) x;
           expression(call.on());
@@ -989,16 +1014,64 @@ public class JavaToJavaScriptCompiler {
           expression(conditional.condition());
           expression(conditional.then());
           expression(conditional.elsee());
-        } else if ((x instanceof VarRef) || (x instanceof ThisRef$) || (x instanceof Literal)) {
+        } else if (x instanceof Cast) {
+          Cast cast = (Cast) x;
+          type(cast.typ());
+          expression(cast.on());
+        } else if (x instanceof InstanceOf) {
+          InstanceOf instanceOf = (InstanceOf) x;
+          type(instanceOf.typ());
+          expression(instanceOf.on());
+        } else if (x instanceof FieldRef) {
+          FieldRef fieldRef = (FieldRef) x;
+          expression(fieldRef.on());
+        } else if (x instanceof StaticFieldRef) {
+          StaticFieldRef staticFieldRef = (StaticFieldRef) x;
+          refs.add(staticFieldRef.on().javaName());
+        } else if (x instanceof BinaryOp) {
+          BinaryOp binarOp = (BinaryOp) x;
+          expression(binarOp.lhs());
+          expression(binarOp.rhs());
+        } else if (x instanceof ArrayRef) {
+          ArrayRef arrayRef = (ArrayRef) x;
+          expression(arrayRef.on());
+          expression(arrayRef.index());
+        } else if (x instanceof ArrayInitializer) {
+          arrayInitializer((ArrayInitializer) x);
+        } else if (x instanceof ArrayLength) {
+          ArrayLength arrayLength = (ArrayLength) x;
+          expression(arrayLength.on());
+        } else if (x instanceof NewArray) {
+          NewArray newArray = (NewArray) x;
+          type(newArray.typ());
+          for (Option<Expression> i : newArray.jdims()) {
+            if (i.isDefined())
+              expression(i.get());
+          }
+        } else if (x instanceof UnaryOp) {
+          UnaryOp unaryOp = (UnaryOp) x;
+          expression(unaryOp.expression());
+        } else if ((x instanceof VarRef) || (x instanceof ThisRef$) || (x instanceof Literal)
+            || (x instanceof SuperRef$)) {
           // do nothing as these expression cannot introduce new refs
+        } else if (x instanceof ClassOf) {
+          ClassOf classOf = (ClassOf) x;
+          refs.add(classOf.ref().javaName());
         } else {
           throw new RuntimeException("Unsupported node " + x);
         }
       }
       
+      private void arrayInitializer(ArrayInitializer x) {
+        type(x.typ());
+        for (Expression i : x.jelements()) {
+          expression(i);
+        }
+      }
+      
       private void interfaceDef(InterfaceDef def) {
-        if (def.ext().isDefined()) {
-          refs.add(def.ext().get().javaName());
+        for (Ref x : def.jext()) {
+          refs.add(x.javaName());
         }
         for (MethodDef x : def.jbody()) {
           methodDef(x);
@@ -1007,13 +1080,15 @@ public class JavaToJavaScriptCompiler {
       
       private void methodDef(MethodDef def) {
         paramDefs(def.jparams());
-        block(def.body());
+        if (def.body().isDefined()) {
+          block(def.body().get());
+        }
       }
       
       private void block(Block block) {
         for (Statement x : block.jstatements()) {
-          if (x instanceof SuperConstructorCall) {
-            constructorStatement(x);
+          if (x instanceof ConstructorCall) {
+            constructorCall((ConstructorCall) x);
           } else { 
             methodStatement(x);
           }
@@ -1024,16 +1099,50 @@ public class JavaToJavaScriptCompiler {
         if (x instanceof VarDef) {
           VarDef def = (VarDef) x;
           type(def.typ());
-          expression(def.value());
+          if (def.value().isDefined()) {
+            expression(def.value().get());
+          }
         } else if (x instanceof Assignment) {
           Assignment assignement = (Assignment) x;
-          expression(assignement.value());
+          expression(assignement.lhs());
+          expression(assignement.rhs());
         } else if (x instanceof Expression) {
           expression((Expression) x);
         } else if (x instanceof If) {
           ifStmt((If) x);
+        } else if (x instanceof Return) {
+          Return returnStmt = (Return) x;
+          if (returnStmt.expression().isDefined()) {
+            expression(returnStmt.expression().get());
+          }
+        } else if (x instanceof Switch) {
+          switchStmt((Switch) x);
+        } else if (x instanceof Throw) {
+          Throw throwStmt = (Throw) x;
+          expression(throwStmt.expression());
+        } else if (x instanceof Try) {
+          tryStmt((Try) x);
+        } else if (x instanceof While) {
+          While whileStmt = (While) x;
+          expression(whileStmt.condition());
+          block(whileStmt.block());
+        } else if (x instanceof Block) {
+            block((Block) x);
+        } else if (x instanceof Break || x instanceof Continue) {
+          // do nothing as these statements cannot introduce new refs
         } else {
           throw new RuntimeException("Unsupported node " + x);
+        }
+      }
+      
+      private void tryStmt(Try x) {
+        block(x.block());
+        for (Tuple3<Ref, String, Block> i : x.jcatches()) {
+          refs.add(i._1().javaName());
+          block(i._3());
+        }
+        if (x.finalizer().isDefined()) {
+          block(x.finalizer().get());
         }
       }
       
@@ -1042,6 +1151,16 @@ public class JavaToJavaScriptCompiler {
         block(x.then());
         if (x.elsee().isDefined()) {
           block(x.elsee().get());
+        }
+      }
+      
+      private void switchStmt(Switch x) {
+        expression(x.expression());
+        for (Tuple2<Literal, Block> i : x.jgroups()) {
+          block(i._2);
+        }
+        if (x.jdefault().isDefined()) {
+          block(x.jdefault().get());
         }
       }
       

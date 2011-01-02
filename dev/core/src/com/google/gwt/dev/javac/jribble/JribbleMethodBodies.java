@@ -18,7 +18,11 @@ package com.google.gwt.dev.javac.jribble;
 
 import static com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
 
+import com.google.gwt.dev.jjs.ast.JArrayRef;
+import com.google.gwt.dev.jjs.ast.JBinaryOperation;
+import com.google.gwt.dev.jjs.ast.JBinaryOperator;
 import com.google.gwt.dev.jjs.ast.JBlock;
+import com.google.gwt.dev.jjs.ast.JCastOperation;
 import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JConditional;
 import com.google.gwt.dev.jjs.ast.JConstructor;
@@ -26,40 +30,57 @@ import com.google.gwt.dev.jjs.ast.JDeclarationStatement;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JExpression;
 import com.google.gwt.dev.jjs.ast.JExpressionStatement;
+import com.google.gwt.dev.jjs.ast.JField;
+import com.google.gwt.dev.jjs.ast.JFieldRef;
 import com.google.gwt.dev.jjs.ast.JIfStatement;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JLocalRef;
 import com.google.gwt.dev.jjs.ast.JMethod;
 import com.google.gwt.dev.jjs.ast.JMethodBody;
 import com.google.gwt.dev.jjs.ast.JMethodCall;
+import com.google.gwt.dev.jjs.ast.JNewArray;
+import com.google.gwt.dev.jjs.ast.JArrayType;
 import com.google.gwt.dev.jjs.ast.JNewInstance;
 import com.google.gwt.dev.jjs.ast.JParameter;
 import com.google.gwt.dev.jjs.ast.JParameterRef;
+import com.google.gwt.dev.jjs.ast.JPrimitiveType;
 import com.google.gwt.dev.jjs.ast.JProgram;
+import com.google.gwt.dev.jjs.ast.JReturnStatement;
 import com.google.gwt.dev.jjs.ast.JStatement;
 import com.google.gwt.dev.jjs.ast.JThisRef;
+import com.google.gwt.dev.jjs.ast.JThrowStatement;
 import com.google.gwt.dev.jjs.ast.JType;
 import com.google.gwt.dev.jjs.ast.JVariableRef;
 import com.google.gwt.dev.jjs.impl.BuildTypeMap;
 import com.google.gwt.dev.jjs.impl.TypeMap;
+import com.google.jribble.ast.ArrayLength;
+import com.google.jribble.ast.ArrayRef;
 import com.google.jribble.ast.Assignment;
+import com.google.jribble.ast.BinaryOp;
 import com.google.jribble.ast.Block;
 import com.google.jribble.ast.BooleanLiteral;
+import com.google.jribble.ast.Cast;
 import com.google.jribble.ast.ClassDef;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
+import com.google.jribble.ast.ConstructorCall;
+import com.google.jribble.ast.Equal;
 import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.FieldRef;
 import com.google.jribble.ast.If;
 import com.google.jribble.ast.Literal;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
+import com.google.jribble.ast.NewArray;
 import com.google.jribble.ast.NewCall;
+import com.google.jribble.ast.Return;
 import com.google.jribble.ast.Signature;
 import com.google.jribble.ast.Statement;
+import com.google.jribble.ast.StaticFieldRef;
 import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.StringLiteral;
-import com.google.jribble.ast.SuperConstructorCall;
 import com.google.jribble.ast.ThisRef$;
+import com.google.jribble.ast.Throw;
 import com.google.jribble.ast.Type;
 import com.google.jribble.ast.VarDef;
 import com.google.jribble.ast.VarRef;
@@ -68,6 +89,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import scala.Option;
 
 /**
  * Class that transforms jribble AST into GWT AST.
@@ -95,18 +118,17 @@ public class JribbleMethodBodies {
   public JExpressionStatement assignment(Assignment assignment,
       Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
       JMethodBody enclosingBody, JClassType enclosingClass) {
-    JLocal local = findLocal(enclosingBody.getLocals(), assignment.name());
-    JLocalRef ref = new JLocalRef(UNKNOWN, local);
-    JExpression expr = expression(assignment.value(), varDict, paramDict, enclosingClass);
-    return JProgram.createAssignmentStmt(UNKNOWN, ref, expr);
+    JExpression lhs = expression(assignment.lhs(), varDict, paramDict, enclosingClass);
+    JExpression rhs = expression(assignment.rhs(), varDict, paramDict, enclosingClass);
+    return JProgram.createAssignmentStmt(UNKNOWN, lhs, rhs);
   }
   
   public void block(Block block, JBlock jblock, Map<String, JLocal> varDict, 
       Map<String, JParameter> paramDict, JMethodBody enclosingBody, JClassType enclosingClass) {
     for (Statement x : block.jstatements()) {
       final JStatement js;
-      if (x instanceof SuperConstructorCall) {
-        js = superConstructorCall((SuperConstructorCall)x, varDict, paramDict, 
+      if (x instanceof ConstructorCall) {
+        js = constructorCall((ConstructorCall)x, varDict, paramDict, 
             enclosingClass).makeStatement();
       } else {
         js = methodStatement(x, varDict, paramDict, enclosingBody, enclosingClass);
@@ -140,6 +162,9 @@ public class JribbleMethodBodies {
     Map<String, JLocal> varDict = new HashMap<String, JLocal>();
     Map<String, JParameter> paramDict = new HashMap<String, JParameter>();
     JMethod jc = findMethod(enclosingClass, constructor.signature(classDef.name()));
+    for (JParameter x : jc.getParams()) {
+      paramDict.put(x.getName(), x);
+    }
     JMethodBody body = (JMethodBody) jc.getBody();
     JBlock jblock = body.getBlock();
     block(constructor.body(), jblock, varDict, paramDict, body, enclosingClass);
@@ -149,12 +174,12 @@ public class JribbleMethodBodies {
       Map<String, JParameter> paramDict, JClassType enclosingType) {
     if (expr instanceof Literal) {
       return literal((Literal) expr);
+    } else if (expr instanceof VarRef) {
+      return varRef((VarRef) expr, varDict, paramDict);
     } else if (expr instanceof ThisRef$) {
       return thisRef(enclosingType);
     } else if (expr instanceof MethodCall) {
       return methodCall((MethodCall) expr, varDict, paramDict, enclosingType);
-    } else if (expr instanceof ThisRef$) {
-      return thisRef(enclosingType);
     } else if (expr instanceof StaticMethodCall) {
       return staticMethodCall((StaticMethodCall) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof VarRef) {
@@ -163,11 +188,107 @@ public class JribbleMethodBodies {
       return newCall((NewCall) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof Conditional) {
       return conditional((Conditional) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof Cast) {
+      return cast((Cast) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof BinaryOp) {
+      return binaryOp((Equal) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof FieldRef) {
+      return fieldRef((FieldRef) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof StaticFieldRef) {
+      return staticFieldRef((StaticFieldRef) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof ArrayRef) {
+      return arrayRef((ArrayRef) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof NewArray) {
+      return newArray((NewArray) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof ArrayLength) {
+      return arrayLength((ArrayLength) expr, varDict, paramDict, enclosingType);
     } else {
       throw new RuntimeException("to be implemented handling of " + expr);
     }
   }
   
+  private JFieldRef arrayLength(ArrayLength expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    JExpression on = expression(expr.on(), varDict, paramDict, enclosingType);
+    return new JFieldRef(UNKNOWN, on, program.getIndexedField("Array.length"), enclosingType);
+  }
+  
+  private JNewArray newArray(NewArray expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    JArrayType typ = program.getTypeArray(type(expr.typ()), expr.jdims().size());
+    List<JExpression> dims = new LinkedList<JExpression>();
+    for (Option<Expression> i : expr.jdims()) {
+      if (i.isDefined()) {
+        dims.add(expression(i.get(), varDict, paramDict, enclosingType));
+      } else {
+        dims.add(program.getLiteralAbsentArrayDimension());
+      }
+    }
+    return JNewArray.createDims(program, UNKNOWN, typ, dims);
+  }
+  
+  private JArrayRef arrayRef(ArrayRef expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    return new JArrayRef(UNKNOWN, expression(expr.on(), varDict, paramDict, enclosingType), 
+        expression(expr.index(), varDict, paramDict, enclosingType));
+  }
+  
+  private JFieldRef staticFieldRef(StaticFieldRef expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    if (expr.name().equals("MODULE$")) {
+      JField field = typeMap.getField(expr.on().javaName(), expr.name());
+      return new JFieldRef(UNKNOWN, null, field, enclosingType);
+    } else {
+      throw new RuntimeException("to be implemented handling of " + expr);
+    }
+  }
+
+  private JFieldRef fieldRef(FieldRef expr, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JClassType enclosingType) {
+    if (expr.on().equals(ThisRef$.MODULE$)) {
+      List<JField> fields = enclosingType.getFields();
+      JField field = findField(fields, expr.name());
+      JExpression on = expression(expr.on(), varDict, paramDict, enclosingType);
+      return new JFieldRef(UNKNOWN, on, field, enclosingType);
+    } else if (expr.on() instanceof StaticFieldRef) {
+      StaticFieldRef staticRef = (StaticFieldRef) expr.on();
+      if (staticRef.name().equals("MODULE$") && 
+          staticRef.on().javaName().equals("scala.runtime.BoxedUnit") && expr.name().equals("UNIT")) {
+        JField field = typeMap.getField("scala.runtime.BoxedUnit", "UNIT");
+        return new JFieldRef(UNKNOWN, null, field, enclosingType);
+      } else {
+        throw new RuntimeException("to be implemented handling of " + expr);
+      }
+    } else {
+      throw new RuntimeException("to be implemented handling of " + expr);
+    }
+  }
+
+  private JBinaryOperation binaryOp(BinaryOp op, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JClassType enclosingType) {
+    JExpression lhs = expression(op.lhs(), varDict, paramDict, enclosingType);
+    JExpression rhs = expression(op.lhs(), varDict, paramDict, enclosingType);
+    JBinaryOperator jop;
+    JType type;
+    if (op.symbol() == "==") {
+      jop = JBinaryOperator.EQ;
+      type = JPrimitiveType.BOOLEAN;
+    } else {
+      throw new RuntimeException("Uknown symbol " + op.symbol());
+    }
+    return new JBinaryOperation(UNKNOWN, type, jop, lhs, rhs);
+  }
+
+  private JCastOperation cast(Cast cast, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JClassType enclosingType) {
+    JExpression on = expression(cast.on(), varDict, paramDict, enclosingType); 
+    return new JCastOperation(UNKNOWN, type(cast.typ()), on);
+  }
+
   public JIfStatement ifStmt(If statement, Map<String, JLocal> varDict,
       Map<String, JParameter> paramDict, JMethodBody enclosingBody, JClassType enclosingClass) {
     JExpression condition = expression(statement.condition(), varDict, paramDict, enclosingClass);
@@ -211,11 +332,16 @@ public class JribbleMethodBodies {
     Map<String, JLocal> varDict = new HashMap<String, JLocal>();
     Map<String, JParameter> paramDict = new HashMap<String, JParameter>();
     JMethod m = findMethod(enclosingClass, def.signature(classDef.name()));
+    for (JParameter x : m.getParams()) {
+      paramDict.put(x.getName(), x);
+    }
     JMethodBody body = (JMethodBody) m.getBody();
     JBlock block = body.getBlock();
-    for (Statement x : def.body().jstatements()) {
-      JStatement js = methodStatement(x, varDict, paramDict, body, enclosingClass);
-      block.addStmt(js);
+    if (def.body().isDefined()) {
+      for (Statement x : def.body().get().jstatements()) {
+        JStatement js = methodStatement(x, varDict, paramDict, body, enclosingClass);
+        block.addStmt(js);
+      }
     }
   }
   
@@ -230,19 +356,37 @@ public class JribbleMethodBodies {
       return expression((Expression) statement, varDict, paramDict, enclosingClass).makeStatement();
     } else if (statement instanceof If) {
       return ifStmt((If) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof Return) {
+      return returnStmt((Return) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof Throw) {
+      return throwStmt((Throw) statement, varDict, paramDict, enclosingBody, enclosingClass);
     } else throw new RuntimeException("Unexpected case " + statement);
   }
   
+  private JThrowStatement throwStmt(Throw statement, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody,
+      JClassType enclosingClass) {
+    JExpression expression = expression(statement.expression(), varDict, paramDict, enclosingClass);
+    return new JThrowStatement(UNKNOWN, expression);
+  }
+
+  private JReturnStatement returnStmt(Return statement, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody,
+      JClassType enclosingClass) {
+    JExpression expression = null;
+    if (statement.expression().isDefined()) {
+      expression = expression(statement.expression().get(), varDict, paramDict, enclosingClass);
+    }
+    return new JReturnStatement(UNKNOWN, expression);
+  }
+
   public JNewInstance newCall(NewCall call, Map<String, JLocal> varDict,
       Map<String, JParameter> paramDict, JClassType enclosingType) {
-    JConstructor constructor = (JConstructor) typeMap.getMethod(call.signature().on().javaName(), 
-        jsniSignature(call.signature()));
-    
-    List<JExpression> params = params(call.signature().jparamTypes(), call.jparams(), varDict, 
-        paramDict, enclosingType);
+    JMethodCall methodCall = constructorCall(call.constructor(), varDict, paramDict, enclosingType); 
+    JConstructor constructor = (JConstructor) methodCall.getTarget();
 
     JNewInstance jnew = new JNewInstance(UNKNOWN, constructor, enclosingType);
-    jnew.addArgs(params);
+    jnew.addArgs(methodCall.getArgs());
     return jnew;
   }
   
@@ -259,7 +403,7 @@ public class JribbleMethodBodies {
     return jcall;
   }
   
-  public JMethodCall superConstructorCall(SuperConstructorCall call, 
+  public JMethodCall constructorCall(ConstructorCall call, 
       Map<String, JLocal> varDict, Map<String, JParameter> paramDict, 
       JClassType enclosingType) {
     Signature signature = call.signature();
@@ -289,7 +433,10 @@ public class JribbleMethodBodies {
         false, enclosingBody);
     varDict.put(def.name(), local);
     JLocalRef ref = new JLocalRef(UNKNOWN, local);
-    JExpression expr = expression(def.value(), varDict, paramDict, enclosingClass);
+    JExpression expr = null;
+    if (def.value().isDefined()) {
+      expr = expression(def.value().get(), varDict, paramDict, enclosingClass);
+    }
     return new JDeclarationStatement(UNKNOWN, ref, expr);
   }
   
@@ -303,6 +450,17 @@ public class JribbleMethodBodies {
       throw new RuntimeException("Reference to unkown variable '" + ref.name() + "'");
     }
   }
+  
+  private JField findField(List<JField> fields, String name) {
+    JField result = null;
+    for (JField l : fields) {
+      if (l.getName().equals(name)) {
+        result = l;
+        break;
+      }
+    }
+    return result;        
+  }
 
   private JLocal findLocal(List<JLocal> locals, String name) {
     JLocal result = null;
@@ -312,12 +470,7 @@ public class JribbleMethodBodies {
         break;
       }
     }
-    if (result != null) {
-      return result;
-    } else {
-      throw new RuntimeException("Local variable '" + name + "' cound not" +
-          " be found.");
-    }        
+    return result;        
   }
 
   private JMethod findMethod(JDeclaredType type, Signature signature) {
@@ -337,6 +490,8 @@ public class JribbleMethodBodies {
     // TODO(grek): establish convention for super calls and get rid of this special case
     if (s.name().equals("super")) {
       b.append(s.on().name());
+    } else if (s.name().equals("this")) {
+        b.append(s.on().name());
     } else {
       b.append(s.name());
     }
