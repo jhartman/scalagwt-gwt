@@ -238,11 +238,10 @@ public class BuildTypeMap {
     
     public void interfaceDef(InterfaceDef def) {
       JDeclaredType type = typeMap.get(def.name());
-      // TODO(grek): jribble should have ext: List[Ref] instead of Option[Ref]
-      // in InterfaceDef and we probably should be using addImplements instead 
-      // of setSuperClass
-      if (def.ext().isDefined()) {
-        type.setSuperClass((JClassType) typeMap.get(def.ext().get()));
+      for (Ref x : def.jext()) {
+        if (typeMap.get(x) instanceof JClassType)
+          System.out.println(typeMap.get(x));
+        type.addImplements((JInterfaceType) typeMap.get(x));
       }
     }
   }
