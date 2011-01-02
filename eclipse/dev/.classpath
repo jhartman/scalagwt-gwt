@@ -41,6 +41,6 @@
         <classpathentry kind="var" path="GWT_TOOLS/lib/htmlunit/htmlunit-r5607/htmlunit-r5607.jar" sourcepath="/GWT_TOOLS/lib/htmlunit/htmlunit-r5607/htmlunit-r5607-sources.jar"/>
 	<classpathentry kind="var" path="GWT_TOOLS/lib/protobuf/protobuf-2.2.0/protobuf-java-rebased-2.2.0.jar"/>
 	<classpathentry kind="lib" path="scalagwt-lib/scala-library.jar"/>
-	<classpathentry kind="lib" path="scalagwt-lib/jribble_2.8.0-0.1-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="scalagwt-lib/jribble_2.8.1-0.1-SNAPSHOT.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

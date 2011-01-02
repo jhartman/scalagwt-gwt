@@ -25,6 +25,7 @@ import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.gwt.dev.resource.Resource;
 import com.google.gwt.dev.util.Util;
 import com.google.jribble.DefParser;
+import com.google.jribble.DefParserForJava;
 import com.google.jribble.ast.DeclaredType;
 
 import org.apache.commons.collections.map.AbstractReferenceMap;
@@ -43,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+
+import scala.Either;
 
 /**
  * Manages a centralized cache for compiled units.
@@ -349,24 +352,26 @@ public class CompilationStateBuilder {
   private Iterable<JribbleUnit> parseAllJribbleUnits(TreeLogger logger,
       Iterable<Resource> sources) {
     List<JribbleUnit> units = new ArrayList<JribbleUnit>();
-    DefParser parser = new DefParser();
+    DefParser parser = new DefParserForJava();
     for (Resource source : sources) {
       if (!isJribbleFile(source)) {
         continue;
       }
-      DeclaredType type;
+      Either<DeclaredType,String> result;
       try {
-        type = parser.parse(Util.createReader(logger, source.openContents()));
-      } catch (Exception e) {
-        if (e instanceof UnableToCompleteException) {
-          // bad unit; skip it
-          continue;
-        // TODO(grek): is this a right thing to do?
-        } else {
-          throw new RuntimeException(e);
-        }
+        result = parser.parse(Util.createReader(logger, source.openContents()), source.getPath());
+      } catch (UnableToCompleteException e) {
+        // bad unit, skip it
+        continue;
       }
-      units.add(new JribbleUnit(type.name().javaName(), type));
+      if (result.isRight()) {
+        logger.log(TreeLogger.WARN,
+            String.format("Failed to parse %1s, parsing failed with a message:\n%2s", 
+                source.getPath(), result.right().get()));
+      } else {
+        DeclaredType type = result.left().get();
+        units.add(new JribbleUnit(type.name().javaName(), type));
+      }
     }
     return units;
   }
