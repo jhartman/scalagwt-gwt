@@ -32,6 +32,7 @@ import com.google.jribble.ast.Type;
 
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedFieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
@@ -93,13 +94,18 @@ public class TypeMap {
       return get(wcb.erasure());
     }
     JNode result = internalGet(binding);
-    if (result == null) {
-      InternalCompilerException ice = new InternalCompilerException(
-          "Failed to get JNode");
-      ice.addNode(binding.getClass().getName(), binding.toString(), null);
-      throw ice;
+    if (result != null) {
+      return result;
+    } else if (binding instanceof BinaryTypeBinding) {
+      result = declaredTypesByName.get(String.valueOf(((BinaryTypeBinding)binding).debugName()));
+      if (result != null) {
+        return result;
+      }
     }
-    return result;
+    InternalCompilerException ice = new InternalCompilerException(
+        "Failed to get JNode");
+    ice.addNode(binding.getClass().getName(), binding.toString(), null);
+    throw ice;
   }
 
   public JDeclaredType get(JDeclaredType type) {

@@ -15,6 +15,7 @@
  */
 package com.google.gwt.dev.javac;
 
+import com.google.gwt.dev.javac.jribble.JribbleUnit;
 import com.google.gwt.dev.jdt.TypeRefVisitor;
 
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
@@ -110,7 +111,12 @@ public class BinaryTypeReferenceRestrictionsChecker {
    * is reported against the {@link CompilationUnitDeclaration} for the first
    * instance of each unique {@link BinaryTypeBinding}.
    */
-  public static void check(CompilationUnitDeclaration cud) {
+  public static void check(CompilationUnitDeclaration cud, Iterable<JribbleUnit> jribbleUnits) {
+    //TODO(grek): Cache this set somewhere
+    Set<String> jribbleTypes = new HashSet<String>();
+    for (JribbleUnit i : jribbleUnits) {
+      jribbleTypes.add(i.getJribbleSyntaxTree().name().javaName());
+    }
     List<BinaryTypeReferenceSite> binaryTypeReferenceSites = findAllBinaryTypeReferenceSites(cud);
     Set<BinaryTypeBinding> alreadySeenTypeBindings = new HashSet<BinaryTypeBinding>();
 
@@ -122,12 +128,15 @@ public class BinaryTypeReferenceRestrictionsChecker {
       alreadySeenTypeBindings.add(binaryTypeBinding);
 
       String fileName = String.valueOf(binaryTypeBinding.getFileName());
+      String qualifiedTypeName = binaryTypeBinding.debugName();
       if (fileName.endsWith(".java")) {
         // This binary name is valid; it is a reference to a unit that was
         // compiled in a previous JDT run.
         continue;
+      } else if (jribbleTypes.contains(qualifiedTypeName)) {
+        //This binary name is valid; there is corresponding jribble file for it
+        continue;
       }
-      String qualifiedTypeName = binaryTypeBinding.debugName();
       String error = formatBinaryTypeRefErrorMessage(qualifiedTypeName);
 
       // TODO(mmendez): provide extra help info?

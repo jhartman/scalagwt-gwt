@@ -56,8 +56,18 @@ public class CompilationStateBuilder {
    * An opaque class that lets you compile more units later.
    */
   public class CompileMoreLater {
+    
+    public CompileMoreLater(Iterable<JribbleUnit> jribbleUnits) {
+      this.compiler = new JdtCompiler(new UnitProcessorImpl(jribbleUnits));
+    }
 
     private final class UnitProcessorImpl implements UnitProcessor {
+      
+      private final Iterable<JribbleUnit> jribbleUnits;
+      
+      public UnitProcessorImpl(Iterable<JribbleUnit> jribbleUnits) {
+        this.jribbleUnits = jribbleUnits;
+      }
 
       public void process(CompilationUnitBuilder builder,
           CompilationUnitDeclaration cud, List<CompiledClass> compiledClasses) {
@@ -80,7 +90,7 @@ public class CompilationStateBuilder {
 
         JSORestrictionsChecker.check(jsoState, cud);
         ArtificialRescueChecker.check(cud, builder.isGenerated());
-        BinaryTypeReferenceRestrictionsChecker.check(cud);
+        BinaryTypeReferenceRestrictionsChecker.check(cud, jribbleUnits);
 
         MethodArgNamesLookup methodArgs = MethodParamCollector.collect(cud);
 
@@ -117,8 +127,7 @@ public class CompilationStateBuilder {
     /**
      * The JDT compiler.
      */
-    private final JdtCompiler compiler = new JdtCompiler(
-        new UnitProcessorImpl());
+    private final JdtCompiler compiler;
 
     /**
      * Continuation state for JSNI checking.
@@ -276,7 +285,8 @@ public class CompilationStateBuilder {
         resultUnits.values());
 
     // Compile everything else.
-    CompileMoreLater compileMoreLater = new CompileMoreLater();
+    Iterable<JribbleUnit> jribbleUnits = parseAllJribbleUnits(logger, resources);
+    CompileMoreLater compileMoreLater = new CompileMoreLater(jribbleUnits);
     List<CompilationUnitBuilder> builders = new ArrayList<CompilationUnitBuilder>();
     for (Resource resource : resources) {
       if (isJribbleFile(resource)) {
@@ -297,8 +307,7 @@ public class CompilationStateBuilder {
     // Invalidate units with invalid refs.
     invalidateUnitsWithInvalidRefs(logger, resultUnits,
         Collections.<ContentId> emptySet());
-    return new CompilationState(logger,  resultUnits.values(), parseAllJribbleUnits(logger,
-        resources),compileMoreLater);
+    return new CompilationState(logger,  resultUnits.values(), jribbleUnits, compileMoreLater);
   }
 
   /**
