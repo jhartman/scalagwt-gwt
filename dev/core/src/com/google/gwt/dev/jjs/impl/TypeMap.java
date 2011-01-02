@@ -176,6 +176,10 @@ public class TypeMap {
   public JMethod getMethod(String typeName, String methodJsniSignature) {
     return methodsByName.get(methodDescriptor(typeName, methodJsniSignature));
   }
+  
+  public JField getField(String typeName, String name) {
+    return fieldsByName.get(fieldDescriptor(typeName, name));
+  }
 
   public JProgram getProgram() {
     return program;

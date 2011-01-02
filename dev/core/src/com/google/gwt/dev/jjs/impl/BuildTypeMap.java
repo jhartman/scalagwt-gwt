@@ -46,6 +46,7 @@ import com.google.gwt.dev.js.ast.JsNameRef;
 import com.google.gwt.dev.js.ast.JsProgram;
 import com.google.jribble.ast.ClassDef;
 import com.google.jribble.ast.Constructor;
+import com.google.jribble.ast.FieldDef;
 import com.google.jribble.ast.InterfaceDef;
 import com.google.jribble.ast.MethodDef;
 import com.google.jribble.ast.ParamDef;
@@ -120,6 +121,9 @@ public class BuildTypeMap {
       for (MethodDef x : def.jmethodDefs()) {
         methodDef(x, enclosingType);
       }
+      for (FieldDef x : def.jfieldDefs()) {
+        fieldDef(x, enclosingType);
+      }
     }
     
     public List<String> interfaceDef(InterfaceDef def) {
@@ -147,6 +151,15 @@ public class BuildTypeMap {
       paramDefs(def.jparams(), method);
       method.freezeParamTypes();
       typeMap.put(method);
+    }
+    
+    private void fieldDef(FieldDef def, JDeclaredType enclosingType) {
+      SourceInfo info = com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
+      boolean isStatic = def.modifs().contains("static"); 
+      JField field = program.createField(info, def.name(), enclosingType,
+          // TODO(grek): hard-coded modifiers
+          typeMap.get(def.typ()), isStatic, Disposition.NONE);
+      typeMap.put(field);
     }
     
     private void paramDefs(List<ParamDef> xs, JMethod method) {
