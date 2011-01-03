@@ -101,7 +101,7 @@
         </fileset>
         <fileset dir="${gwt.root}/scalagwt-lib">
           <include name="scala-library.jar"/>
-          <include name="jribble_2.8.0-0.1-SNAPSHOT.jar"/>
+          <include name="jribble_2.8.1-0.1-SNAPSHOT.jar"/>
         </fileset>
         <fileset file="build.xml"/>
       </sourcefiles>
@@ -159,7 +159,7 @@
           <!-- htmlunit dependencies not already included: END -->
           <zipfileset src="${gwt.tools.lib}/sun/swingworker/swing-worker-1.1.jar" />
           <zipfileset src="${gwt.root}/scalagwt-lib/scala-library.jar" />
-          <zipfileset src="${gwt.root}/scalagwt-lib/jribble_2.8.0-0.1-SNAPSHOT.jar" />
+          <zipfileset src="${gwt.root}/scalagwt-lib/jribble_2.8.1-0.1-SNAPSHOT.jar" />
         </gwt.jar>
       </sequential>
     </outofdate>
@@ -198,7 +198,7 @@
           <pathelement location="${gwt.tools.lib}/tomcat/commons-collections-3.1.jar" />
           <pathelement location="${gwt.tools.lib}/junit/junit-3.8.1.jar" />
           <pathelement location="${gwt.root}/scalagwt-lib/scala-library.jar" />
-          <pathelement location="${gwt.root}/scalagwt-lib/jribble_2.8.0-0.1-SNAPSHOT.jar" />
+          <pathelement location="${gwt.root}/scalagwt-lib/jribble_2.8.1-0.1-SNAPSHOT.jar" />
       </classpath>
     </gwt.javac>
 
