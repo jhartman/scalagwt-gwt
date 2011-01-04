@@ -284,33 +284,23 @@ public class JribbleMethodBodies {
   private JFieldRef staticFieldRef(StaticFieldRef expr,
       Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
       JClassType enclosingType) {
-    if (expr.name().equals("MODULE$")) {
-      JField field = typeMap.getField(expr.on().javaName(), expr.name());
-      return new JFieldRef(UNKNOWN, null, field, enclosingType);
-    } else {
-      throw new RuntimeException("to be implemented handling of " + expr);
+    JField field = typeMap.getField(expr.on().javaName(), expr.name());
+    if (field == null) {
+      throw new RuntimeException();
     }
+    return new JFieldRef(UNKNOWN, null, field, enclosingType);
   }
 
   private JFieldRef fieldRef(FieldRef expr, Map<String, JLocal> varDict,
       Map<String, JParameter> paramDict, JClassType enclosingType) {
-    if (expr.on().equals(ThisRef$.MODULE$)) {
-      List<JField> fields = enclosingType.getFields();
-      JField field = findField(fields, expr.name());
-      JExpression on = expression(expr.on(), varDict, paramDict, enclosingType);
-      return new JFieldRef(UNKNOWN, on, field, enclosingType);
-    } else if (expr.on() instanceof StaticFieldRef) {
-      StaticFieldRef staticRef = (StaticFieldRef) expr.on();
-      if (staticRef.name().equals("MODULE$") && 
-          staticRef.on().javaName().equals("scala.runtime.BoxedUnit") && expr.name().equals("UNIT")) {
-        JField field = typeMap.getField("scala.runtime.BoxedUnit", "UNIT");
-        return new JFieldRef(UNKNOWN, null, field, enclosingType);
-      } else {
-        throw new RuntimeException("to be implemented handling of " + expr);
-      }
-    } else {
-      throw new RuntimeException("to be implemented handling of " + expr);
+    JExpression on = expression(expr.on(), varDict, paramDict, enclosingType);
+    //TODO FieldRef.onType should be of type Ref and not Type
+    JClassType typ = (JClassType) typeMap.get(expr.onType());
+    JField field = findField(typ.getFields(), expr.name());
+    if (field == null) {
+      throw new RuntimeException();
     }
+    return new JFieldRef(UNKNOWN, on, field, enclosingType);
   }
 
   private JBinaryOperation binaryOp(BinaryOp op, Map<String, JLocal> varDict,
