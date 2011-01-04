@@ -53,10 +53,16 @@ import com.google.gwt.dev.jjs.ast.JType;
 import com.google.gwt.dev.jjs.ast.JVariableRef;
 import com.google.gwt.dev.jjs.impl.BuildTypeMap;
 import com.google.gwt.dev.jjs.impl.TypeMap;
+import com.google.jribble.ast.And;
 import com.google.jribble.ast.ArrayLength;
 import com.google.jribble.ast.ArrayRef;
 import com.google.jribble.ast.Assignment;
 import com.google.jribble.ast.BinaryOp;
+import com.google.jribble.ast.BitAnd;
+import com.google.jribble.ast.BitLShift;
+import com.google.jribble.ast.BitOr;
+import com.google.jribble.ast.BitRShift;
+import com.google.jribble.ast.BitXor;
 import com.google.jribble.ast.Block;
 import com.google.jribble.ast.BooleanLiteral;
 import com.google.jribble.ast.Cast;
@@ -64,15 +70,26 @@ import com.google.jribble.ast.ClassDef;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
 import com.google.jribble.ast.ConstructorCall;
+import com.google.jribble.ast.Divide;
 import com.google.jribble.ast.Equal;
 import com.google.jribble.ast.Expression;
 import com.google.jribble.ast.FieldRef;
+import com.google.jribble.ast.Greater;
+import com.google.jribble.ast.GreaterOrEqual;
 import com.google.jribble.ast.If;
+import com.google.jribble.ast.Lesser;
+import com.google.jribble.ast.LesserOrEqual;
 import com.google.jribble.ast.Literal;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
+import com.google.jribble.ast.Minus;
+import com.google.jribble.ast.Modulus;
+import com.google.jribble.ast.Multiply;
 import com.google.jribble.ast.NewArray;
 import com.google.jribble.ast.NewCall;
+import com.google.jribble.ast.NotEqual;
+import com.google.jribble.ast.Or;
+import com.google.jribble.ast.Plus;
 import com.google.jribble.ast.Return;
 import com.google.jribble.ast.Signature;
 import com.google.jribble.ast.Statement;
@@ -191,7 +208,7 @@ public class JribbleMethodBodies {
     } else if (expr instanceof Cast) {
       return cast((Cast) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof BinaryOp) {
-      return binaryOp((Equal) expr, varDict, paramDict, enclosingType);
+      return binaryOp((BinaryOp) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof FieldRef) {
       return fieldRef((FieldRef) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof StaticFieldRef) {
@@ -274,9 +291,62 @@ public class JribbleMethodBodies {
     JExpression rhs = expression(op.lhs(), varDict, paramDict, enclosingType);
     JBinaryOperator jop;
     JType type;
-    if (op.symbol() == "==") {
+    //TODO(grek): Most of types below are wrong. It looks like we'll need
+    //to store type information for operators too. :-(
+    if (op instanceof Equal) {
       jop = JBinaryOperator.EQ;
-      type = JPrimitiveType.BOOLEAN;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof Multiply) {
+      jop = JBinaryOperator.MUL;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof Divide) {
+      jop = JBinaryOperator.DIV;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof Modulus) {
+      jop = JBinaryOperator.MOD;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof Minus) {
+      jop = JBinaryOperator.SUB;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof Plus) {
+      jop = JBinaryOperator.ADD;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof Greater) {
+      jop = JBinaryOperator.GT;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof GreaterOrEqual) {
+      jop = JBinaryOperator.GTE;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof Lesser) {
+      jop = JBinaryOperator.LT;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof LesserOrEqual) {
+      jop = JBinaryOperator.LTE;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof NotEqual) {
+      jop = JBinaryOperator.NEQ;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof And) {
+      jop = JBinaryOperator.AND;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof Or) {
+      jop = JBinaryOperator.OR;
+      type = program.getTypePrimitiveBoolean();
+    } else if (op instanceof BitLShift) {
+      jop = JBinaryOperator.SHL;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof BitRShift) {
+      jop = JBinaryOperator.SHR;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof BitAnd) {
+      jop = JBinaryOperator.BIT_AND;
+      type = program.getTypePrimitiveInt();
+    } else if (op instanceof BitOr) {
+      jop = JBinaryOperator.BIT_OR;
+      type = program.getTypePrimitiveInt();;
+    } else if (op instanceof BitXor) {
+      jop = JBinaryOperator.BIT_XOR;
+      type = program.getTypePrimitiveInt();
     } else {
       throw new RuntimeException("Uknown symbol " + op.symbol());
     }
