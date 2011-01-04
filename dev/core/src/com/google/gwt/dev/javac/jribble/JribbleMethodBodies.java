@@ -66,20 +66,25 @@ import com.google.jribble.ast.BitXor;
 import com.google.jribble.ast.Block;
 import com.google.jribble.ast.BooleanLiteral;
 import com.google.jribble.ast.Cast;
+import com.google.jribble.ast.CharLiteral;
 import com.google.jribble.ast.ClassDef;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
 import com.google.jribble.ast.ConstructorCall;
 import com.google.jribble.ast.Divide;
+import com.google.jribble.ast.DoubleLiteral;
 import com.google.jribble.ast.Equal;
 import com.google.jribble.ast.Expression;
 import com.google.jribble.ast.FieldRef;
+import com.google.jribble.ast.FloatLiteral;
 import com.google.jribble.ast.Greater;
 import com.google.jribble.ast.GreaterOrEqual;
 import com.google.jribble.ast.If;
+import com.google.jribble.ast.IntLiteral;
 import com.google.jribble.ast.Lesser;
 import com.google.jribble.ast.LesserOrEqual;
 import com.google.jribble.ast.Literal;
+import com.google.jribble.ast.LongLiteral;
 import com.google.jribble.ast.MethodCall;
 import com.google.jribble.ast.MethodDef;
 import com.google.jribble.ast.Minus;
@@ -87,6 +92,7 @@ import com.google.jribble.ast.Modulus;
 import com.google.jribble.ast.Multiply;
 import com.google.jribble.ast.NewArray;
 import com.google.jribble.ast.NewCall;
+import com.google.jribble.ast.NullLiteral$;
 import com.google.jribble.ast.NotEqual;
 import com.google.jribble.ast.Or;
 import com.google.jribble.ast.Plus;
@@ -378,8 +384,20 @@ public class JribbleMethodBodies {
       return program.getLiteralString(UNKNOWN, ((StringLiteral) literal).v());
     } else if (literal instanceof BooleanLiteral) {
       return program.getLiteralBoolean(((BooleanLiteral) literal).v());
+    } else if (literal instanceof CharLiteral) {
+      return program.getLiteralChar(((CharLiteral) literal).v());
+    } else if (literal instanceof DoubleLiteral) {
+      return program.getLiteralDouble(((DoubleLiteral) literal).v());
+    } else if (literal instanceof FloatLiteral) {
+      return program.getLiteralFloat(((FloatLiteral) literal).v());
+    } else if (literal instanceof IntLiteral) {
+      return program.getLiteralInt(((IntLiteral) literal).v());
+    } else if (literal instanceof LongLiteral) {
+      return program.getLiteralLong(((LongLiteral) literal).v());
+    } else if (literal instanceof NullLiteral$) {
+      return program.getLiteralNull();
     } else {
-      throw new RuntimeException("to be implemented");
+      throw new RuntimeException("to be implemented handling of " + literal);
     }
   }
   
