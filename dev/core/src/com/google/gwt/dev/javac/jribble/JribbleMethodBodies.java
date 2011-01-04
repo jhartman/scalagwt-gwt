@@ -23,6 +23,7 @@ import com.google.gwt.dev.jjs.ast.JBinaryOperation;
 import com.google.gwt.dev.jjs.ast.JBinaryOperator;
 import com.google.gwt.dev.jjs.ast.JBlock;
 import com.google.gwt.dev.jjs.ast.JCastOperation;
+import com.google.gwt.dev.jjs.ast.JClassLiteral;
 import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JConditional;
 import com.google.gwt.dev.jjs.ast.JConstructor;
@@ -33,6 +34,7 @@ import com.google.gwt.dev.jjs.ast.JExpressionStatement;
 import com.google.gwt.dev.jjs.ast.JField;
 import com.google.gwt.dev.jjs.ast.JFieldRef;
 import com.google.gwt.dev.jjs.ast.JIfStatement;
+import com.google.gwt.dev.jjs.ast.JInstanceOf;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JLocalRef;
 import com.google.gwt.dev.jjs.ast.JMethod;
@@ -45,6 +47,7 @@ import com.google.gwt.dev.jjs.ast.JParameter;
 import com.google.gwt.dev.jjs.ast.JParameterRef;
 import com.google.gwt.dev.jjs.ast.JPrimitiveType;
 import com.google.gwt.dev.jjs.ast.JProgram;
+import com.google.gwt.dev.jjs.ast.JReferenceType;
 import com.google.gwt.dev.jjs.ast.JReturnStatement;
 import com.google.gwt.dev.jjs.ast.JStatement;
 import com.google.gwt.dev.jjs.ast.JThisRef;
@@ -68,6 +71,7 @@ import com.google.jribble.ast.BooleanLiteral;
 import com.google.jribble.ast.Cast;
 import com.google.jribble.ast.CharLiteral;
 import com.google.jribble.ast.ClassDef;
+import com.google.jribble.ast.ClassOf;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
 import com.google.jribble.ast.ConstructorCall;
@@ -80,6 +84,7 @@ import com.google.jribble.ast.FloatLiteral;
 import com.google.jribble.ast.Greater;
 import com.google.jribble.ast.GreaterOrEqual;
 import com.google.jribble.ast.If;
+import com.google.jribble.ast.InstanceOf;
 import com.google.jribble.ast.IntLiteral;
 import com.google.jribble.ast.Lesser;
 import com.google.jribble.ast.LesserOrEqual;
@@ -225,9 +230,26 @@ public class JribbleMethodBodies {
       return newArray((NewArray) expr, varDict, paramDict, enclosingType);
     } else if (expr instanceof ArrayLength) {
       return arrayLength((ArrayLength) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof InstanceOf) {
+      return instanceOf((InstanceOf) expr, varDict, paramDict, enclosingType);
+    } else if (expr instanceof ClassOf) {
+      return classOf((ClassOf) expr, varDict, paramDict, enclosingType);
     } else {
       throw new RuntimeException("to be implemented handling of " + expr);
     }
+  }
+  
+  private JClassLiteral classOf(ClassOf expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    return program.getLiteralClass(type(expr.ref()));
+  }
+  
+  private JInstanceOf instanceOf(InstanceOf expr,
+      Map<String, JLocal> varDict, Map<String, JParameter> paramDict,
+      JClassType enclosingType) {
+    JExpression on = expression(expr.on(), varDict, paramDict, enclosingType);
+    return new JInstanceOf(UNKNOWN, (JReferenceType)typeMap.get(expr.typ()), on);
   }
   
   private JFieldRef arrayLength(ArrayLength expr,
