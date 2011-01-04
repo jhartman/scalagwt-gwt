@@ -18,6 +18,7 @@ package com.google.gwt.dev.javac.jribble;
 
 import static com.google.gwt.dev.jjs.SourceOrigin.UNKNOWN;
 
+import com.google.gwt.dev.jjs.InternalCompilerException;
 import com.google.gwt.dev.jjs.ast.JArrayRef;
 import com.google.gwt.dev.jjs.ast.JBinaryOperation;
 import com.google.gwt.dev.jjs.ast.JBinaryOperator;
@@ -52,8 +53,10 @@ import com.google.gwt.dev.jjs.ast.JReturnStatement;
 import com.google.gwt.dev.jjs.ast.JStatement;
 import com.google.gwt.dev.jjs.ast.JThisRef;
 import com.google.gwt.dev.jjs.ast.JThrowStatement;
+import com.google.gwt.dev.jjs.ast.JTryStatement;
 import com.google.gwt.dev.jjs.ast.JType;
 import com.google.gwt.dev.jjs.ast.JVariableRef;
+import com.google.gwt.dev.jjs.ast.JWhileStatement;
 import com.google.gwt.dev.jjs.impl.BuildTypeMap;
 import com.google.gwt.dev.jjs.impl.TypeMap;
 import com.google.jribble.ast.And;
@@ -101,6 +104,7 @@ import com.google.jribble.ast.NullLiteral$;
 import com.google.jribble.ast.NotEqual;
 import com.google.jribble.ast.Or;
 import com.google.jribble.ast.Plus;
+import com.google.jribble.ast.Ref;
 import com.google.jribble.ast.Return;
 import com.google.jribble.ast.Signature;
 import com.google.jribble.ast.Statement;
@@ -109,9 +113,11 @@ import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.StringLiteral;
 import com.google.jribble.ast.ThisRef$;
 import com.google.jribble.ast.Throw;
+import com.google.jribble.ast.Try;
 import com.google.jribble.ast.Type;
 import com.google.jribble.ast.VarDef;
 import com.google.jribble.ast.VarRef;
+import com.google.jribble.ast.While;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -119,6 +125,7 @@ import java.util.List;
 import java.util.Map;
 
 import scala.Option;
+import scala.Tuple3;
 
 /**
  * Class that transforms jribble AST into GWT AST.
@@ -460,7 +467,49 @@ public class JribbleMethodBodies {
       return returnStmt((Return) statement, varDict, paramDict, enclosingBody, enclosingClass);
     } else if (statement instanceof Throw) {
       return throwStmt((Throw) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof Try) {
+      return tryStmt((Try) statement, varDict, paramDict, enclosingBody, enclosingClass);
+    } else if (statement instanceof While) {
+      return whileStmt((While) statement, varDict, paramDict, enclosingBody, enclosingClass);
     } else throw new RuntimeException("Unexpected case " + statement);
+  }
+  
+  private JWhileStatement whileStmt(While statement, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody,
+      JClassType enclosingClass) {
+    JBlock block = new JBlock(UNKNOWN);
+    block(statement.block(), block, varDict, paramDict, enclosingBody, enclosingClass);
+    JExpression cond = expression(statement.condition(), varDict, paramDict, enclosingClass);
+    if (statement.label().isDefined()) {
+      throw new InternalCompilerException("Handling of labels in while loops is not implemented yet.");
+    }
+    return new JWhileStatement(UNKNOWN, cond, block);
+  }
+  
+  private JTryStatement tryStmt(Try statement, Map<String, JLocal> varDict,
+      Map<String, JParameter> paramDict, JMethodBody enclosingBody,
+      JClassType enclosingClass) {
+    JBlock block = new JBlock(UNKNOWN);
+    block(statement.block(), block, varDict, paramDict, enclosingBody, enclosingClass);
+    List<JLocalRef> catchVars = new LinkedList<JLocalRef>();
+    List<JBlock> catchBlocks = new LinkedList<JBlock>();
+    for (Tuple3<Ref, String, Block> x : statement.jcatches()) {
+      JLocal local = JProgram.createLocal(UNKNOWN, x._2(), typeMap.get(x._1()),
+          false, enclosingBody);
+      varDict.put(x._2(), local);
+      JLocalRef ref = new JLocalRef(UNKNOWN, local);
+      JBlock catchBlock = new JBlock(UNKNOWN);
+      block(x._3(), catchBlock, varDict, paramDict, enclosingBody, enclosingClass);
+      catchBlocks.add(catchBlock);
+      catchVars.add(ref);
+      //TODO(grek): Pop from varDict
+    }
+    JBlock finallyBlock = null;
+    if (statement.finalizer().isDefined()) {
+      finallyBlock = new JBlock(UNKNOWN);
+      block(statement.finalizer().get(), finallyBlock, varDict, paramDict, enclosingBody, enclosingClass);
+    }
+    return new JTryStatement(UNKNOWN, block, catchVars, catchBlocks, finallyBlock);
   }
   
   private JThrowStatement throwStmt(Throw statement, Map<String, JLocal> varDict,
