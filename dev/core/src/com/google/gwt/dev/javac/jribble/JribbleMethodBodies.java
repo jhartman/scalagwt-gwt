@@ -37,6 +37,7 @@ import com.google.gwt.dev.jjs.ast.JFieldRef;
 import com.google.gwt.dev.jjs.ast.JIfStatement;
 import com.google.gwt.dev.jjs.ast.JInstanceOf;
 import com.google.gwt.dev.jjs.ast.JLabel;
+import com.google.gwt.dev.jjs.ast.JLabeledStatement;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JLocalRef;
 import com.google.gwt.dev.jjs.ast.JMethod;
@@ -588,7 +589,7 @@ public class JribbleMethodBodies {
     } else throw new RuntimeException("Unexpected case " + statement);
   }
   
-  private JWhileStatement whileStmt(While statement, LocalStack local) {
+  private JStatement whileStmt(While statement, LocalStack local) {
     JExpression cond = expression(statement.condition(), local);
     JLabel label = null;
     if (statement.label().isDefined()) {
@@ -600,7 +601,11 @@ public class JribbleMethodBodies {
     if (label != null) {
       local.popLabel(label.getName());
     }
-    return new JWhileStatement(UNKNOWN, cond, block);
+    JStatement jstatement = new JWhileStatement(UNKNOWN, cond, block);
+    if (label != null) {
+      jstatement = new JLabeledStatement(UNKNOWN, label, jstatement);
+    }
+    return jstatement;
   }
   
   private JTryStatement tryStmt(Try statement, LocalStack localStack) {
