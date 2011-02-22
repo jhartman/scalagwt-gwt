@@ -23,11 +23,14 @@ import com.google.gwt.dev.jjs.ast.JArrayRef;
 import com.google.gwt.dev.jjs.ast.JBinaryOperation;
 import com.google.gwt.dev.jjs.ast.JBinaryOperator;
 import com.google.gwt.dev.jjs.ast.JBlock;
+import com.google.gwt.dev.jjs.ast.JBreakStatement;
+import com.google.gwt.dev.jjs.ast.JCaseStatement;
 import com.google.gwt.dev.jjs.ast.JCastOperation;
 import com.google.gwt.dev.jjs.ast.JClassLiteral;
 import com.google.gwt.dev.jjs.ast.JClassType;
 import com.google.gwt.dev.jjs.ast.JConditional;
 import com.google.gwt.dev.jjs.ast.JConstructor;
+import com.google.gwt.dev.jjs.ast.JContinueStatement;
 import com.google.gwt.dev.jjs.ast.JDeclarationStatement;
 import com.google.gwt.dev.jjs.ast.JDeclaredType;
 import com.google.gwt.dev.jjs.ast.JExpression;
@@ -54,6 +57,7 @@ import com.google.gwt.dev.jjs.ast.JProgram;
 import com.google.gwt.dev.jjs.ast.JReferenceType;
 import com.google.gwt.dev.jjs.ast.JReturnStatement;
 import com.google.gwt.dev.jjs.ast.JStatement;
+import com.google.gwt.dev.jjs.ast.JSwitchStatement;
 import com.google.gwt.dev.jjs.ast.JThisRef;
 import com.google.gwt.dev.jjs.ast.JThrowStatement;
 import com.google.gwt.dev.jjs.ast.JTryStatement;
@@ -78,6 +82,7 @@ import com.google.jribble.ast.BitRShift;
 import com.google.jribble.ast.BitXor;
 import com.google.jribble.ast.Block;
 import com.google.jribble.ast.BooleanLiteral;
+import com.google.jribble.ast.Break;
 import com.google.jribble.ast.Cast;
 import com.google.jribble.ast.CharLiteral;
 import com.google.jribble.ast.ClassDef;
@@ -85,6 +90,7 @@ import com.google.jribble.ast.ClassOf;
 import com.google.jribble.ast.Conditional;
 import com.google.jribble.ast.Constructor;
 import com.google.jribble.ast.ConstructorCall;
+import com.google.jribble.ast.Continue;
 import com.google.jribble.ast.Divide;
 import com.google.jribble.ast.DoubleLiteral;
 import com.google.jribble.ast.Equal;
@@ -119,6 +125,7 @@ import com.google.jribble.ast.Statement;
 import com.google.jribble.ast.StaticFieldRef;
 import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.StringLiteral;
+import com.google.jribble.ast.Switch;
 import com.google.jribble.ast.ThisRef$;
 import com.google.jribble.ast.Throw;
 import com.google.jribble.ast.Try;
@@ -134,6 +141,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+
+import scala.Tuple2;
 
 import scala.Option;
 import scala.Tuple3;
@@ -587,7 +596,54 @@ public class JribbleMethodBodies {
       return tryStmt((Try) statement, local);
     } else if (statement instanceof While) {
       return whileStmt((While) statement, local);
+    } else if (statement instanceof Block) {
+        JBlock block = new JBlock(UNKNOWN);
+        block((Block) statement, block, local);
+        return block;
+    } else if (statement instanceof Continue) {
+      return continueStmt((Continue) statement, local);
+    } else if (statement instanceof Break) {
+      return breakStmt((Break) statement, local);
+    } else if (statement instanceof Switch) {
+        return switchStmt((Switch) statement, local);
     } else throw new RuntimeException("Unexpected case " + statement);
+  }
+  
+  private JSwitchStatement switchStmt(Switch statement, LocalStack local) {
+    JExpression expr = expression(statement.expression(), local);
+    JBlock block = new JBlock(UNKNOWN);
+    for (Tuple2<Literal, Block> x : statement.jgroups()) {
+      JLiteral literal = literal(x._1);
+      JCaseStatement caseStmt = new JCaseStatement(UNKNOWN, literal);
+      JBlock caseBlock = new JBlock(UNKNOWN);
+      caseBlock.addStmt(caseStmt);
+      block(x._2, caseBlock, local);
+      block.addStmt(caseStmt);
+    }
+    if (statement.jdefault().isDefined()) {
+      JCaseStatement caseStmt = new JCaseStatement(UNKNOWN, null);
+      JBlock caseBlock = new JBlock(UNKNOWN);
+      caseBlock.addStmt(caseStmt);
+      block(statement.jdefault().get(), caseBlock, local);
+      block.addStmt(caseStmt);
+    }
+    return new JSwitchStatement(UNKNOWN, expr, block);
+  }
+  
+  private JContinueStatement continueStmt(Continue statement, LocalStack local) {
+    JLabel label = null;
+    if (statement.label().isDefined()) {
+      label = local.getLabel(statement.label().get());
+    }
+    return new JContinueStatement(UNKNOWN, label);
+  }
+  
+  private JBreakStatement breakStmt(Break statement, LocalStack local) {
+    JLabel label = null;
+    if (statement.label().isDefined()) {
+      label = local.getLabel(statement.label().get());
+    }
+    return new JBreakStatement(UNKNOWN, label);
   }
   
   private JStatement whileStmt(While statement, LocalStack local) {
