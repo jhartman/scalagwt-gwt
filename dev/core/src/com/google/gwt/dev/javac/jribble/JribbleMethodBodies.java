@@ -38,6 +38,7 @@ import com.google.gwt.dev.jjs.ast.JIfStatement;
 import com.google.gwt.dev.jjs.ast.JInstanceOf;
 import com.google.gwt.dev.jjs.ast.JLabel;
 import com.google.gwt.dev.jjs.ast.JLabeledStatement;
+import com.google.gwt.dev.jjs.ast.JLiteral;
 import com.google.gwt.dev.jjs.ast.JLocal;
 import com.google.gwt.dev.jjs.ast.JLocalRef;
 import com.google.gwt.dev.jjs.ast.JMethod;
@@ -507,7 +508,7 @@ public class JribbleMethodBodies {
     return new JIfStatement(UNKNOWN, condition, then, elsee);
   }
   
-  public JExpression literal(Literal literal) {
+  public JLiteral literal(Literal literal) {
     if (literal instanceof StringLiteral) {
       return program.getLiteralString(UNKNOWN, ((StringLiteral) literal).v());
     } else if (literal instanceof BooleanLiteral) {
