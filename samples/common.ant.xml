@@ -58,7 +58,9 @@
         <mkdir dir="${sample.build}/war" />
         <gwt.timer name="${sample.upper} with ${gwt.samples.localworkers} localWorkers">
           <java dir="${sample.build}" classname="com.google.gwt.dev.Compiler" classpath="src:${sample.build}/war/WEB-INF/classes:${gwt.user.jar}:${gwt.dev.jar}:${scala.library-jribble.jar}" fork="yes" failonerror="true">
-            <jvmarg value="-Xmx256M"/>
+            <jvmarg value="-Xmx512M"/>
+            <arg value="-ea" />
+            <arg value="-draftCompile" />
             <arg value="-localWorkers" />
             <arg value="${gwt.samples.localworkers}" />
             <arg value="-war" />
