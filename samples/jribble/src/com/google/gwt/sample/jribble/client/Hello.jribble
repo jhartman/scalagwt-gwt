@@ -1,11 +1,18 @@
 public class Lcom/google/gwt/sample/jribble/client/Hello; extends Ljava/lang/Object; implements Lcom/google/gwt/core/client/EntryPoint;, Lscala/ScalaObject; {
   
-  public V onModuleLoad() {
-    Lcom/google/gwt/user/client/ui/Button; b = new (Lcom/google/gwt/user/client/ui/Button;::Button(Ljava/lang/String;Lcom/google/gwt/event/dom/client/ClickHandler;)V)("Click me", new (Lcom/google/gwt/sample/jribble/client/Hello$$anon$1;::Hello$$anon$1(Lcom/google/gwt/sample/jribble/client/Hello;)V)(this));
-    Lcom/google/gwt/user/client/ui/RootPanel;.(Lcom/google/gwt/user/client/ui/RootPanel;::get()Lcom/google/gwt/user/client/ui/RootPanel;)().(Lcom/google/gwt/user/client/ui/AbsolutePanel;::add(Lcom/google/gwt/user/client/ui/Widget;)V)(b);
+  public V; onModuleLoad() {
+    Lscala/collection/immutable/List; numbers = Lscala/collection/immutable/List$;.MODULE$.(Lscala/collection/immutable/List$;::apply(Lscala/collection/Seq;)Lscala/collection/immutable/List;)(Lscala/Predef$;.MODULE$.(Lscala/LowPriorityImplicits;::wrapIntArray(I;[)Lscala/collection/mutable/WrappedArray;)(<I;>{1, 2, 3, 4}));
+    Lscala/collection/immutable/List; strings = numbers.(Lscala/collection/TraversableLike;::map(Lscala/Function1;Lscala/collection/generic/CanBuildFrom;)Ljava/lang/Object;)((new (Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$1;::this(Lcom/google/gwt/sample/jribble/client/Hello;)V;)(this)), Lscala/collection/immutable/List$;.MODULE$.(Lscala/collection/immutable/List$;::canBuildFrom()Lscala/collection/generic/CanBuildFrom;)()).<cast>(Lscala/collection/immutable/List;);
+    Ljava/lang/String; s$1 = strings.(Lscala/collection/TraversableOnce;::mkString(Ljava/lang/String;)Ljava/lang/String;)(",");
+    Lcom/google/gwt/user/client/ui/Button; b = (new (Lcom/google/gwt/user/client/ui/Button;::this(Ljava/lang/String;Lcom/google/gwt/event/dom/client/ClickHandler;)V;)("Click me", this.(Lcom/google/gwt/sample/jribble/client/Hello;::clickHandler(Lscala/Function1;)Lcom/google/gwt/event/dom/client/ClickHandler;)((new (Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$2;::this(Lcom/google/gwt/sample/jribble/client/Hello;Ljava/lang/String;)V;)(this, s$1)))));
+    Lcom/google/gwt/user/client/ui/RootPanel;.(Lcom/google/gwt/user/client/ui/RootPanel;::get()Lcom/google/gwt/user/client/ui/RootPanel;)().(Lcom/google/gwt/user/client/ui/AbsolutePanel;::add(Lcom/google/gwt/user/client/ui/Widget;)V;)(b);
   }
   
-  public Hello() {
-    (Ljava/lang/Object;::super()V)();
+  public Lcom/google/gwt/event/dom/client/ClickHandler; clickHandler(Lscala/Function1; f$1) {
+    return (new (Lcom/google/gwt/sample/jribble/client/Hello$$anon$1;::this(Lcom/google/gwt/sample/jribble/client/Hello;Lscala/Function1;)V;)(this, f$1));
+  }
+  
+  public this() {
+    (Ljava/lang/Object;::super()V;)();
   }
 }

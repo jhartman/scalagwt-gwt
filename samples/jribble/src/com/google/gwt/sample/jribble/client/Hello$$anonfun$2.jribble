@@ -1,0 +1,18 @@
+public final class Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$2; extends Lscala/runtime/AbstractFunction1; {
+  
+  public final V; apply(Lcom/google/gwt/event/dom/client/ClickEvent; x$2) {
+    Lcom/google/gwt/user/client/Window;.(Lcom/google/gwt/user/client/Window;::alert(Ljava/lang/String;)V;)(("Hello, AJAX, said Scala\012Those numbers are coming from list!\012" + this.(Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$2;)s$1));
+  }
+  
+  public final Ljava/lang/Object; apply(Ljava/lang/Object; v1) {
+    this.(Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$2;::apply(Lcom/google/gwt/event/dom/client/ClickEvent;)V;)(v1.<cast>(Lcom/google/gwt/event/dom/client/ClickEvent;));
+    return Lscala/runtime/BoxedUnit;.MODULE$.(Lscala/runtime/BoxedUnit;)UNIT;
+  }
+  
+  private Ljava/lang/String; s$1;
+  
+  public this(Lcom/google/gwt/sample/jribble/client/Hello; $outer, Ljava/lang/String; s$1) {
+    this.(Lcom/google/gwt/sample/jribble/client/Hello$$anonfun$2;)s$1 = s$1;
+    (Lscala/runtime/AbstractFunction1;::super()V;)();
+  }
+}

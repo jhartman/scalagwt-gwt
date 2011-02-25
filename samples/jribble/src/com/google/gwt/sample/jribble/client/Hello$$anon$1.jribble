@@ -1,10 +1,13 @@
 public final class Lcom/google/gwt/sample/jribble/client/Hello$$anon$1; extends Ljava/lang/Object; implements Lcom/google/gwt/event/dom/client/ClickHandler; {
   
-  public V onClick(Lcom/google/gwt/event/dom/client/ClickEvent; event) {
-    Lcom/google/gwt/user/client/Window;.(Lcom/google/gwt/user/client/Window;::alert(Ljava/lang/String;)V)("Hello, AJAX said Scala");
+  public V; onClick(Lcom/google/gwt/event/dom/client/ClickEvent; event) {
+    this.(Lcom/google/gwt/sample/jribble/client/Hello$$anon$1;)f$1.(Lscala/Function1;::apply(Ljava/lang/Object;)Ljava/lang/Object;)(event);
   }
   
-  public Hello$$anon$1(Lcom/google/gwt/sample/jribble/client/Hello; $outer) {
-    (Ljava/lang/Object;::super()V)();
+  private Lscala/Function1; f$1;
+  
+  public this(Lcom/google/gwt/sample/jribble/client/Hello; $outer, Lscala/Function1; f$1) {
+    this.(Lcom/google/gwt/sample/jribble/client/Hello$$anon$1;)f$1 = f$1;
+    (Ljava/lang/Object;::super()V;)();
   }
 }
