@@ -95,6 +95,7 @@ import com.google.jribble.ast.Divide;
 import com.google.jribble.ast.DoubleLiteral;
 import com.google.jribble.ast.Equal;
 import com.google.jribble.ast.Expression;
+import com.google.jribble.ast.FieldDef;
 import com.google.jribble.ast.FieldRef;
 import com.google.jribble.ast.FloatLiteral;
 import com.google.jribble.ast.Greater;
@@ -266,6 +267,7 @@ public class JribbleMethodBodies {
     JClassType clazz = (JClassType) typeMap.get(def.name());
     List<Constructor> constructors = def.jconstructors();
     List<MethodDef> methods = def.jmethodDefs();
+    List<FieldDef> fields = def.jfieldDefs();
     try {
       for (Constructor i : constructors) {
         constructor(i, def, clazz);
@@ -273,9 +275,38 @@ public class JribbleMethodBodies {
       for (MethodDef i : methods) {
         methodDef(i, clazz, def);
       }
+      for (FieldDef i : fields) {
+        fieldDef(i, def, clazz);
+      }
     } catch (InternalCompilerException e) {
       e.addNode(clazz);
       throw e;
+    }
+  }
+  
+  public void fieldDef(FieldDef fieldDef, ClassDef classDef,
+      JClassType enclosingClass) {
+    JField field = findField(enclosingClass.getFields(), fieldDef.name());
+    assert field != null;
+    JMethod method;
+    JFieldRef fieldRef;
+    if (field.isStatic()) {      
+      fieldRef = new JFieldRef(UNKNOWN, null, field, enclosingClass);
+      method = enclosingClass.getMethods().get(0);
+      assert method.getName().equals("$clinit");
+    } else {
+      JExpression on = thisRef(enclosingClass);
+      fieldRef = new JFieldRef(UNKNOWN, on, field, enclosingClass);
+      method = enclosingClass.getMethods().get(1);
+      assert method.getName().equals("$init");
+    }
+    JMethodBody body = (JMethodBody) method.getBody();
+    if (fieldDef.value().isDefined()) {
+      LocalStack local = new LocalStack(enclosingClass, body, new HashMap<String, JParameter>());
+      local.pushBlock();
+      JExpression expr = expression(fieldDef.value().get(), local);
+      JStatement decl = new JDeclarationStatement(UNKNOWN, fieldRef, expr);
+      body.getBlock().addStmt(decl);
     }
   }
   
