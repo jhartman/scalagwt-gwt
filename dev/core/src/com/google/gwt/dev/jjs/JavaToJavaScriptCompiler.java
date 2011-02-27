@@ -653,6 +653,14 @@ public class JavaToJavaScriptCompiler {
     jprogram.beginOptimizations();
 
     PerfLogger.start("draft optimize");
+    
+    //TODO(grek): Added Pruner execution as it looks like Finalizer
+    //depends on this phase being executed. This change is not related
+    //to supporting jribble and that's why I'm suspicious about it.
+    //It's hard to imagine that draft compilation was simply broken
+    //at snapshot I forked from. Will investigate it later on.
+    // Remove unreferenced types, fields, methods, [params, locals]
+    Pruner.exec(jprogram, true);
 
     PerfLogger.start("Finalizer");
     Finalizer.exec(jprogram);
