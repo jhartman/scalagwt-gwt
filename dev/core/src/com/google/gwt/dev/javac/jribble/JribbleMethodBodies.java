@@ -79,6 +79,7 @@ import com.google.jribble.ast.BitLShift;
 import com.google.jribble.ast.BitNot;
 import com.google.jribble.ast.BitOr;
 import com.google.jribble.ast.BitRShift;
+import com.google.jribble.ast.BitUnsignedRShift;
 import com.google.jribble.ast.BitXor;
 import com.google.jribble.ast.Block;
 import com.google.jribble.ast.BooleanLiteral;
@@ -126,6 +127,7 @@ import com.google.jribble.ast.Statement;
 import com.google.jribble.ast.StaticFieldRef;
 import com.google.jribble.ast.StaticMethodCall;
 import com.google.jribble.ast.StringLiteral;
+import com.google.jribble.ast.SuperRef$;
 import com.google.jribble.ast.Switch;
 import com.google.jribble.ast.ThisRef$;
 import com.google.jribble.ast.Throw;
@@ -369,9 +371,17 @@ public class JribbleMethodBodies {
       return arrayInitializer((ArrayInitializer) expr, local);
     } else if (expr instanceof UnaryOp) {
       return unaryOp((UnaryOp) expr, local);
+    } else if (expr instanceof SuperRef$) {
+      return superRef(local);
     } else {
       throw new RuntimeException("to be implemented handling of " + expr);
     }
+  }
+  
+  private JExpression superRef(LocalStack local) {
+    //Oddly enough, super refs can be modeled as a this refs.
+    //here we follow the logic from GenerateJavaAST class.
+    return thisRef(local.getEnclosingType());
   }
   
   private JExpression unaryOp(UnaryOp expr, LocalStack local) {
@@ -515,6 +525,9 @@ public class JribbleMethodBodies {
     } else if (op instanceof BitRShift) {
       jop = JBinaryOperator.SHR;
       type = program.getTypePrimitiveInt();
+    } else if (op instanceof BitUnsignedRShift) {
+        jop = JBinaryOperator.SHRU;
+        type = program.getTypePrimitiveInt();
     } else if (op instanceof BitAnd) {
       jop = JBinaryOperator.BIT_AND;
       type = program.getTypePrimitiveInt();
