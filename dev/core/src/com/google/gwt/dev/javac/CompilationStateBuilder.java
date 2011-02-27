@@ -35,6 +35,8 @@ import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -358,19 +360,52 @@ public class CompilationStateBuilder {
     return source.getPath().endsWith(".jribble");
   }
   
-  private Iterable<JribbleUnit> parseAllJribbleUnits(TreeLogger logger,
+  private Iterable<JribbleUnit> parseAllJribbleUnits(final TreeLogger logger,
       Iterable<Resource> sources) {
     List<JribbleUnit> units = new ArrayList<JribbleUnit>();
     DefParser parser = new DefParserForJava();
-    for (Resource source : sources) {
+    for (final Resource source : sources) {
       if (!isJribbleFile(source)) {
         continue;
       }
       Either<DeclaredType,String> result;
       try {
-        result = parser.parse(Util.createReader(logger, source.openContents()), source.getPath());
-      } catch (UnableToCompleteException e) {
-        // bad unit, skip it
+        /**
+         * Reader that can be by recreating underlying Reader
+         * instance. This class is useful when one has to wrap
+         * a Reader that doesn't support reset() method.  
+         */
+        Reader reader = new Reader() {
+          private Reader reader;
+          {
+            reset();
+          }
+          @Override
+          public void close() throws IOException {
+            reader.close();
+          }
+
+          @Override
+          public int read(char[] cbuf, int off, int len) throws IOException {
+            return reader.read(cbuf, off, len);
+          }
+          
+          @Override
+          public void reset() throws IOException {
+            try {
+              if (reader != null) {
+                reader.close();
+              }
+              reader = Util.createReader(logger, source.openContents());
+            } catch (UnableToCompleteException e) {
+              throw new IOException(e);
+            }
+          }
+          
+        };
+        result = parser.parse(reader, source.getPath());
+      } catch (IOException e) {
+        logger.log(TreeLogger.ERROR, "Problem with reading jribble file", e);
         continue;
       }
       if (result.isRight()) {
