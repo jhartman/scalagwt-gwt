@@ -3038,7 +3038,19 @@ public class GenerateJavaAST {
     for (JribbleUnit unit : jribbleUnits) {
       fillIn.process(unit);
       if (unit.getJribbleSyntaxTree() instanceof ClassDef)
-        transformer.classDef((ClassDef) unit.getJribbleSyntaxTree());
+        //TODO(grek): We catch execeptions, print them and continue processing
+        //this can be very dangerous as it may leave AST half baked and can
+        //confuse GWT. This is a temporary solution and will be removed as
+        //soon as JribbleMethodBodies becomes more stable.
+        try {
+          transformer.classDef((ClassDef) unit.getJribbleSyntaxTree());
+        } catch (Exception e) {
+          System.out.println("Found a problem with processing " + unit.getName());
+          e.printStackTrace();
+        } catch (AssertionError e) {
+          System.out.println("Found a problem with processing " + unit.getName());
+          e.printStackTrace();
+        }
     }
 
     Collections.sort(jprogram.getDeclaredTypes(), new HasNameSort());
