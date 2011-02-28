@@ -662,14 +662,14 @@ public class JribbleMethodBodies {
       JBlock caseBlock = new JBlock(UNKNOWN);
       caseBlock.addStmt(caseStmt);
       block(x._2, caseBlock, local);
-      block.addStmt(caseStmt);
+      block.addStmts(caseBlock.getStatements());
     }
     if (statement.jdefault().isDefined()) {
       JCaseStatement caseStmt = new JCaseStatement(UNKNOWN, null);
       JBlock caseBlock = new JBlock(UNKNOWN);
       caseBlock.addStmt(caseStmt);
       block(statement.jdefault().get(), caseBlock, local);
-      block.addStmt(caseStmt);
+      block.addStmts(caseBlock.getStatements());
     }
     return new JSwitchStatement(UNKNOWN, expr, block);
   }
