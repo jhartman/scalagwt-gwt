@@ -31,6 +31,7 @@ import com.google.jribble.ast.Primitive;
 import com.google.jribble.ast.Ref;
 import com.google.jribble.ast.Type;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding;
@@ -108,7 +109,9 @@ public class TypeMap {
     if (result != null) {
       return result;
     } else if (binding instanceof BinaryTypeBinding) {
-      result = declaredTypesByName.get(String.valueOf(((BinaryTypeBinding)binding).debugName()));
+      BinaryTypeBinding binaryTypeBinding = (BinaryTypeBinding) binding;
+      String qualifiedTypeName = new String(CharOperation.concatWith(binaryTypeBinding.compoundName, '.'));
+      result = declaredTypesByName.get(qualifiedTypeName);
       if (result != null) {
         return result;
       }

@@ -18,6 +18,7 @@ package com.google.gwt.dev.javac;
 import com.google.gwt.dev.javac.jribble.JribbleUnit;
 import com.google.gwt.dev.jdt.TypeRefVisitor;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.MarkerAnnotation;
@@ -128,7 +129,7 @@ public class BinaryTypeReferenceRestrictionsChecker {
       alreadySeenTypeBindings.add(binaryTypeBinding);
 
       String fileName = String.valueOf(binaryTypeBinding.getFileName());
-      String qualifiedTypeName = binaryTypeBinding.debugName();
+      String qualifiedTypeName = new String(CharOperation.concatWith(binaryTypeBinding.compoundName, '.'));
       if (fileName.endsWith(".java")) {
         // This binary name is valid; it is a reference to a unit that was
         // compiled in a previous JDT run.
